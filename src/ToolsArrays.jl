@@ -83,8 +83,9 @@ function ToolsArray(f::Function, dim::Dimension;
                     name = Symbol(nameof(f), "(", name(dim), ")"), kwargs...)
     ToolsArray(map(f, val(dim)), (dim,); name, kwargs...)
 end
-function ToolsArray(f::Function, dims::Vararg{<:Dimension};
-                    name = Symbol(nameof(f), "(", join(name.(dims), ','), ")"), kwargs...)
+function ToolsArray(f::Function, dims::Vararg{Dimension};
+                    name = Symbol(nameof(f), "(", join(name.(dims), ','), ")"),
+                    kwargs...)
     data = map(Iterators.product(map(val, dims)...)) do args
         f(args...)
     end

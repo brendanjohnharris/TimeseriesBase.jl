@@ -155,7 +155,7 @@ julia> ts = Timeseries(x, t)
 julia> ts isa typeintersect(UnivariateTimeseries, RegularTimeseries)
 ```
 """
-function Timeseries(x, t, dims::Vararg{<:Dimension}; kwargs...)
+function Timeseries(x, t, dims::Vararg{Dimension}; kwargs...)
     ToolsArray(x, 𝑡(t), dims...; kwargs...)
 end
 
@@ -173,11 +173,13 @@ julia> mts = Timeseries(x, t, v)
 julia> mts isa typeintersect(MultivariateTimeseries, RegularTimeseries)
 ```
 """
-function Timeseries(x, t, v, dims::Vararg{<:Dimension}; kwargs...)
+function Timeseries(x, t, v, dims::Vararg{Dimension}; kwargs...)
     ToolsArray(x, (𝑡(t), Var(v), dims...); kwargs...)
 end
 
-Timeseries(x, dims::Vararg{<:Dimension}; kwargs...) = ToolsArray(x, dims; kwargs...)
+function Timeseries(x, dims::Vararg{Dimension}; kwargs...)
+    ToolsArray(x, dims; kwargs...)
+end
 
 convertconst(a, _) = a
 
