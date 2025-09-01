@@ -9,7 +9,8 @@ import ..ToolsArrays: FrequencyDim
 using DimensionalData
 
 export freqs, Spectrum,
-       AbstractSpectrum, RegularSpectrum, UnivariateSpectrum, MultivariateSpectrum
+       AbstractSpectrum, RegularSpectrum, UnivariateSpectrum, MultivariateSpectrum,
+       AbstractSpectrogram, MultivariateSpectrogram, RegularSpectrogram
 
 """
     𝑓
@@ -80,7 +81,6 @@ function Spectrum(f, v::DimensionalData.Dimension, x; kwargs...)
 end
 
 import DimensionalData: Dimension, TimeDim
-export AbstractSpectrogram, MultivariateSpectrogram, RegularSpectrogram
 
 const TimeFreqIndex = Tuple{T, F, Vararg{Dimension}} where {T <: TimeDim, F <: 𝑓}
 const RegularTimeFreqIndex = Tuple{T, F,

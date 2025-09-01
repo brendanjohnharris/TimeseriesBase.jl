@@ -3,6 +3,7 @@ module TimeseriesBase
 using Reexport
 using DimensionalData
 using IntervalSets
+import DimensionalData: name
 @reexport using DimensionalData
 @reexport using IntervalSets
 
@@ -29,8 +30,9 @@ export AbstractTimeseries,
 
 include("Spectra.jl")
 using TimeseriesBase.Spectra
-export freqs, Spectrum, AbstractSpectrum, RegularSpectrum, UnivariateSpectrum,
-       MultivariateSpectrum
+export freqs, Spectrum,
+       AbstractSpectrum, RegularSpectrum, UnivariateSpectrum, MultivariateSpectrum,
+       AbstractSpectrogram, MultivariateSpectrogram, RegularSpectrogram
 
 include("UnitfulTools.jl")
 using TimeseriesBase.UnitfulTools

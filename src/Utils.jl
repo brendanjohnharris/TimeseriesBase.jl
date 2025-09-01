@@ -12,7 +12,7 @@ import DimensionalData: print_array, _print_array_ctx, _print_indices_vec
 using Unitful
 using Statistics
 
-export times, step, samplingrate, samplingperiod, duration, coarsegrain,
+export times, step, samplingrate, samplingperiod, duration, coarsegrain, stitch,
        buffer, window, delayembed, rectifytime, rectify, matchdim, interlace,
        centraldiff!, centraldiff, centralderiv!, centralderiv,
        rightdiff!, rightdiff, rightderiv!, rightderiv,

@@ -172,12 +172,13 @@ end
 ustripall(d::DimensionalData.Dimension) = ustripall(parent(lookup(d)))
 ustripall(d::DimensionalData.LookupArray) = ustripall(parent(d))
 ustripall(x::String) = x
-ustripall(x::AbstractArray{T}) where {T <: Number} = ustrip.(x)
+ustripall(x::AbstractArray{T}) where {T <: Number} = x
+ustripall(x::AbstractArray{T}) where {T <: Quantity} = ustrip(x)
 ustripall(a::AbstractRange) = a
-ustripall(a::AbstractRange{<:Quantity}) = ustrip.(a)
-ustripall(a::ClosedInterval) = ustrip(a.left) .. ustrip(a.right)
-ustripall(x::AbstractVector{<:AbstractString}) = x
-ustripall(x::AbstractVector{<:Symbol}) = x
+ustripall(a::AbstractRange{<:Quantity}) = ustrip(a)
+ustripall(a::IntervalSets.TypedEndpointsInterval) = ustrip(a.left) .. ustrip(a.right)
+ustripall(x::AbstractArray{<:AbstractString}) = x
+ustripall(x::AbstractArray{<:Symbol}) = x
 ustripall(x) = ustrip(x)
 
 end
