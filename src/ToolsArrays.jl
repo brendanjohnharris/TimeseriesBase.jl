@@ -119,8 +119,12 @@ DimensionalData.@dim Obs ObservationDim "Obs"
 
 abstract type FrequencyDim{T} <: Dimension{T} end
 DimensionalData.@dim 𝑓 FrequencyDim "Frequency"
-DimensionalData.@dim Log10𝑓 FrequencyDim "Log10 Frequency"
-DimensionalData.@dim Log𝑓 FrequencyDim "Natural Log Frequency"
+
+abstract type Log10FrequencyDim{T} <: Dimension{T} end
+DimensionalData.@dim Log10𝑓 Log10FrequencyDim "Log10 Frequency"
+
+abstract type LogFrequencyDim{T} <: Dimension{T} end
+DimensionalData.@dim Log𝑓 LogFrequencyDim "Natural Log Frequency"
 
 """
     ToolsDim{T}
