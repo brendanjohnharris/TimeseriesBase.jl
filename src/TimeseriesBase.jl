@@ -11,7 +11,7 @@ include("ToolsArrays.jl")
 using TimeseriesBase.ToolsArrays
 export AbstractToolsArray, ToolsArray,
        ToolsDimension, ToolsDim,
-       𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs
+       𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs, Log𝑓, Log10𝑓
 
 include("TimeSeries.jl")
 using TimeseriesBase.TimeSeries

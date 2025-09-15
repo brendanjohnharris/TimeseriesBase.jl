@@ -5,7 +5,7 @@ import DimensionalData: Dimension, NoName, NoMetadata, format
 
 export AbstractToolsArray, ToolsArray,
        ToolsDimension, ToolsDim,
-       𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs
+       𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs, Log𝑓, Log10𝑓
 
 """
 A local type to avoid overloading and piracy issues with DimensionalData.jl
