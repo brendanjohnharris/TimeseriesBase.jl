@@ -9,6 +9,7 @@ using TimeseriesBase.UnitfulTools
 import DimensionalData.Dimensions.LookupArrays: At, Near
 import DimensionalData.Dimensions.Dimension
 import DimensionalData: print_array, _print_array_ctx, _print_indices_vec
+import DimensionalData: At, Between, Touches, Near, Where, Contains
 using Unitful
 using Statistics
 
