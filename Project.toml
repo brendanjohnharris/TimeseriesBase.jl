@@ -1,7 +1,7 @@
 name = "TimeseriesBase"
 uuid = "c2aba7f5-82a4-4c45-a741-402bb41ee238"
 authors = ["brendanjohnharris <brendanjohnharris@gmail.com> and contributors"]
-version = "0.1.3"
+version = "0.1.4"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
