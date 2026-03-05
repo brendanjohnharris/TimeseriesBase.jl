@@ -8,7 +8,7 @@ using TestItemRunner
     Aqua.test_all(TimeseriesBase, unbound_args = true)
 end
 
-@testitem "Dates" begin
+@testitem "Dates" tags=[:fast] begin
     using Dates, Unitful
     x = 1:100
     t = DateTime(1901):Year(1):DateTime(2000)
@@ -20,7 +20,7 @@ end
     @test unit(y) == NoUnits
 end
 
-@testitem "Spectra" begin
+@testitem "Spectra" tags=[:fast] begin
     using Unitful
     # Define a test time series
     fs = 0.1:0.1:100

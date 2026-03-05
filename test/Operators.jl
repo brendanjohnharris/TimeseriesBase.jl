@@ -1,4 +1,4 @@
-@testitem "Operators" begin
+@testitem "Operators" tags=[:fast] begin
     import TimeseriesBase.Operators: ℬ!, ℒ!, ℬ, ℒ, 𝒯
     x = Timeseries(x -> randn(), 1:1000)
     _x = deepcopy(x)

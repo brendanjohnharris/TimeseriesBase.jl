@@ -1,4 +1,4 @@
-@testitem "ToolsArrays" begin
+@testitem "ToolsArrays" tags=[:fast] begin
     import DimensionalData: span, DimArrayInterface
     import Interfaces
 
@@ -45,7 +45,7 @@
     @test locus(db) == locus(da)
     @test bounds(db) == bounds(da)
     @test layerdims(db) == layerdims(da)
-    @test index(db, Y) == index(da, Y)
+    @test index(db, Y) == DimensionalData.index(da, Y)
     da_intervals = set(da, X => Intervals, Y => Intervals)
     db_intervals = set(db, X => Intervals, Y => Intervals)
     @test intervalbounds(da_intervals) == intervalbounds(db_intervals)
@@ -67,7 +67,7 @@
     @test parent(x) isa Vector
 end
 
-@testitem "Printing" begin
+@testitem "Printing" tags=[:fast] begin
     # * Vector
     x = ToolsArray(randn(10), (𝑡(1:10),))
     @test_nowarn show(x)
@@ -106,7 +106,7 @@ end
     @test_nowarn display(x)
 end
 
-@testitem "TimeseriesBase.jl" begin
+@testitem "TimeseriesBase.jl" tags=[:fast] begin
     ts = 1:100
     x = @test_nowarn Timeseries(randn(100), ts)
     @test x isa AbstractTimeseries
@@ -122,7 +122,7 @@ end
     @test all(x[𝑡(At(1:10))] .== x[1:10])
 end
 
-@testitem "Dim queries" begin
+@testitem "Dim queries" tags=[:fast] begin
     ts = 1:100
     cs = 1:10
     x = Timeseries(randn(100, 10), ts, Dim{:channel}(cs))
@@ -144,7 +144,7 @@ end
     @test all(lookup(x[At(dims(x, 1))]) .== lookup(x[At(1:10)])) # But same elements
 end
 
-@testitem "Multivariate time series" begin
+@testitem "Multivariate time series" tags=[:fast] begin
     ts = 1:100
     x = @test_nowarn Timeseries(randn(100, 5), ts, 1:5)
     @test x isa AbstractTimeseries
@@ -159,7 +159,7 @@ end
     @test x[𝑡(1 .. 10)] == x[1:10, :]
 end
 
-@testitem "Multidimensional time series" begin
+@testitem "Multidimensional time series" tags=[:fast] begin
     x = @test_nowarn Timeseries(randn(100, 10), 𝑡(1:100), X(1:10))
     @test x isa AbstractTimeseries
     @test x isa RegularTimeseries

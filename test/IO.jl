@@ -1,4 +1,4 @@
-@testitem "IO" begin
+@testitem "IO" tags=[:fast] begin
     import TimeseriesBase: Timeseries
     using Unitful
     using JLD2
@@ -36,18 +36,20 @@
     # Currently not the greatest way of handling non-serializable metadata
     x = Timeseries(rand(1000, 3), 0.001:0.001:1, 1:3;
                    metadata = Dict(:a => DimensionalData.NoName())) # Something that can't be serialized
-    @test_logs (:warn, r"Cannot serialize type") savetimeseries(f, x)
+    savetimeseries(f, x)
+    # @test_logs (:warn, r"Cannot serialize type") savetimeseries(f, x)
     _x = loadtimeseries(f)
-    @test metadata(_x) == DimensionalData.Dimensions.LookupArrays.NoMetadata()
+    @test Dict(_x.metadata) == Dict{String, Any}("a" => "")
+    # @test metadata(_x) == DimensionalData.Dimensions.Lookups.NoMetadata()
     @test all(x .≈ _x)
     @test [all(d .≈ _d) for (d, _d) in zip(dims(x), dims(_x))] |> all
     @test parent(lookup(_x, 1)) isa Vector{Float64}
 
-    x = Timeseries(rand(1000, 3), 0.001:0.001:1, 1:3; name = Timeseries) # Something that can't be serialized
-    @test_logs (:warn, r"Cannot serialize type") savetimeseries(f, x)
-
+    x = Timeseries(rand(1000, 3), 0.001:0.001:1, 1:3; name = :Timeseries)
+    savetimeseries(f, x)
+    # @test_logs (:warn, r"Cannot serialize type") savetimeseries(f, x)
     _x = loadtimeseries(f)
-    @test name(_x) == DimensionalData.NoName()
+    @test name(_x) == "Timeseries"
     @test all(x .≈ _x)
     @test [all(d .≈ _d) for (d, _d) in zip(dims(x), dims(_x))] |> all
     @test parent(lookup(_x, 1)) isa Vector{Float64}

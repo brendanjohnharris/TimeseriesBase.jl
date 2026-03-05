@@ -1,11 +1,11 @@
-@testitem "Interlace" begin
+@testitem "Interlace" tags=[:fast] begin
     x = Timeseries(randn(11), 0:0.1:1)
     y = Timeseries(randn(10), 0.05:0.1:1)
     z = @test_nowarn interlace(x, y)
     @test all(collect(times(z)) .== 0.0:0.05:1.0)
 end
 
-@testitem "Cat and stack" begin
+@testitem "Cat and stack" tags=[:fast] begin
     x = Timeseries(randn(100, 100), 0.1:0.1:10, Var(1:100))
     y = cat(x, x; dims = 𝑓(1:2))
     @test dims(y, 3) == 𝑓(1:2)
@@ -19,7 +19,7 @@ end
     @test dims(y, 1) == 𝑓(1:2)
 end
 
-@testitem "Buffer" begin
+@testitem "Buffer" tags=[:fast] begin
     N = 10
     x = Timeseries(randn(100), 0.1:0.1:10)
     y = @test_nowarn buffer(x, 10)
@@ -47,7 +47,7 @@ end
     y = @test_nowarn delayembed(x, 2, 2, 1)
 end
 
-@testitem "Rectification" begin
+@testitem "Rectification" tags=[:fast] begin
     import TimeseriesBase: rectifytime
     ts = 0.1:0.1:1000
     x = ToolsArray(sin, 𝑡(ts .+ randn(length(ts)) .* 1e-10))
@@ -81,7 +81,7 @@ end
     @test dims(y2, X) == dims(x, X)
 end
 
-@testitem "Central differences" begin
+@testitem "Central differences" tags=[:fast] begin
     sig(n) = Timeseries(cumsum(randn(n)), range(0.01, 0.01, length = n))
     x = sig(1000)
     X = cat((sig(1000) for _ in 1:10)...; dims = Var(1:10))
@@ -100,7 +100,7 @@ end
               ((parent(X)[3:end, :] - parent(X)[1:(end - 2), :]) / 2) ./ samplingperiod(X))
 end
 
-@testitem "Left and right derivatives" begin
+@testitem "Left and right derivatives" tags=[:fast] begin
     import TimeseriesBase: leftdiff, rightdiff
     sig(n) = Timeseries(cumsum(randn(n)), range(0.01, 0.01, length = n))
     x = sig(1000)
@@ -133,7 +133,7 @@ end
 #     @test centralderiv(x) ≈ centralderiv(y)
 # end
 
-@testitem "Unitful derivative" begin
+@testitem "Unitful derivative" tags=[:fast] begin
     using Unitful
     ts = 0.1:0.1:1000
     x = ToolsArray(sin, 𝑡(ts))
@@ -142,7 +142,7 @@ end
     @test unit(eltype(centralderiv(y))) == unit(u"1/s")
 end
 
-@testitem "coarsegrain" begin
+@testitem "coarsegrain" tags=[:fast] begin
     using Statistics
     X = repeat(1:11, 1, 100)
     C = coarsegrain(X, dims = 1)
@@ -188,7 +188,7 @@ end
     @test_nowarn C[𝑡(Near(0.1))]
 end
 
-@testitem "matchdim" begin
+@testitem "matchdim" tags=[:fast] begin
     ts = 0:1:100
     X = [ToolsArray(sin, 𝑡(ts .+ 1e-6 .* randn(101))) for _ in 1:10]
     X = Timeseries(X, 1:10)
