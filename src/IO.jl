@@ -2,6 +2,7 @@ module IO
 
 import FileIO: save, load, @format_str, File, query
 using JSON
+import JSON.json
 using DelimitedFiles
 using TimeseriesBase.ToolsArrays
 using TimeseriesBase.TimeSeries
@@ -32,19 +33,19 @@ function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
             try
                 print(f, json(name(x)))
             catch e
-                @warn e.msg
+                @warn "Cannot serialize type" exception=(e, catch_backtrace())
             end
         end
 
         print(f, "\n# ")
 
-        if metadata(x) isa DimensionalData.Dimensions.LookupArrays.NoMetadata
+        if metadata(x) isa DimensionalData.Dimensions.Lookups.NoMetadata
             print(f, "")
         else
             try
                 print(f, json(metadata(x)))
             catch e
-                @warn e.msg
+                @warn "Cannot serialize type" exception=(e, catch_backtrace())
             end
         end
 
@@ -54,21 +55,21 @@ function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
             print(f, refs)
         catch e
             print(f, "")
-            @warn e.msg
+            @warn "Cannot serialize type" exception=(e, catch_backtrace())
         end
 
         print(f, "\n# ")
 
         try
-            vars = ndims(x) == 1 ? ["time"] : json(["time", name(var)])
+            vars = ndims(x) == 1 ? ["𝑡"] : json(["𝑡", name(var)])
         catch e
-            vars = json(["time", 1:length(var)]) # egh
-            @warn e.msg
+            vars = json(["𝑡", 1:length(var)]) # egh
+            @warn "Cannot serialize type" exception=(e, catch_backtrace())
         end
 
         print(f, vars)
         vars = join(var, '\t')
-        print(f, "\ntime\t$vars\n")
+        print(f, "\n𝑡\t$vars\n")
         writedlm(f, [times(x) x.data], '\t')
     end
 end
@@ -107,7 +108,7 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
 
             print(f, "\n# ")
 
-            if metadata(x) isa DimensionalData.Dimensions.LookupArrays.NoMetadata
+            if metadata(x) isa DimensionalData.Dimensions.Lookups.NoMetadata
                 print(f, "")
             else
                 try
@@ -147,7 +148,7 @@ function loadtimeseries(f::File{format"TSV"})
         # Read the metadata
         line = readline(f)
         metadata = isempty(line[3:end]) ?
-                   DimensionalData.Dimensions.LookupArrays.NoMetadata() :
+                   DimensionalData.Dimensions.Lookups.NoMetadata() :
                    JSON.parse(line[3:end])
 
         # Read the reference dimensions
