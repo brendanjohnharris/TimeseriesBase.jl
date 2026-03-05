@@ -10,8 +10,7 @@ export AbstractTimeseries,
        IrregularIndex, IrregularTimeIndex,
        Timeseries, Timeseries,
        MultidimensionalIndex, MultidimensionalTimeseries,
-       SpikeTrain, MultivariateSpikeTrain, UnivariateSpikeTrain,
-       spiketrain, spiketimes
+       SpikeTrain, MultivariateSpikeTrain, UnivariateSpikeTrain
 
 using ..ToolsArrays
 using DimensionalData
@@ -59,7 +58,7 @@ Var
 
 A type alias for a regularly sampled dimension, wrapping an `AbstractRange`.
 """
-const RegularIndex = Dimensions.LookupArrays.Sampled{T, R} where {T, R <: AbstractRange}
+const RegularIndex = Dimensions.Sampled{T, R} where {T, R <: AbstractRange}
 
 """
     RegularTimeIndex
@@ -93,7 +92,7 @@ const MultidimensionalTimeseries = AbstractToolsArray{T, N, <:MultidimensionalIn
 
 A type alias for an irregularly sampled dimension, wrapping an `AbstractVector`.
 """
-const IrregularIndex = Dimensions.LookupArrays.Sampled{T, R} where {T, R <: AbstractVector}
+const IrregularIndex = Dimensions.Sampled{T, R} where {T, R <: AbstractVector}
 
 """
     IrregularTimeIndex
@@ -128,18 +127,6 @@ SpikeTrain
 
 const UnivariateSpikeTrain = typeintersect(UnivariateTimeseries, SpikeTrain)
 const MultivariateSpikeTrain = typeintersect(MultivariateTimeseries, SpikeTrain)
-
-function spiketrain(x; kwargs...)
-    Timeseries(trues(length(x)), sort(x); kwargs...)
-end
-
-function spiketimes(x::UnivariateSpikeTrain)
-    times(x[x])
-end
-function spiketimes(x::SpikeTrain)
-    map(spiketimes, eachslice(x, dims = tuple(2:ndims(x)...)))
-end
-spiketimes(x::AbstractArray) = x
 
 """
     Timeseries(x, t)
