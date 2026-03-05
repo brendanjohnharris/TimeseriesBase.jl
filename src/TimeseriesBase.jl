@@ -25,8 +25,7 @@ export AbstractTimeseries,
        IrregularIndex, IrregularTimeIndex,
        Timeseries, Timeseries,
        MultidimensionalIndex, MultidimensionalTimeseries,
-       SpikeTrain, MultivariateSpikeTrain, UnivariateSpikeTrain,
-       spiketrain, spiketimes
+       SpikeTrain, MultivariateSpikeTrain, UnivariateSpikeTrain
 
 include("Spectra.jl")
 using TimeseriesBase.Spectra
@@ -49,7 +48,9 @@ export times, step, samplingrate, samplingperiod, duration, coarsegrain,
        leftdiff!, leftdiff, leftderiv!, leftderiv,
        abs, angle, resultant, resultantlength,
        circularmean, circularvar, circularstd,
-       phasegrad, addrefdim, addmetadata, align
+       phasegrad, addrefdim, addmetadata, align,
+       spiketrain, spiketimes,
+       Dropdims
 
 include("DatesTools.jl")
 using TimeseriesBase.DatesTools

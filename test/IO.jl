@@ -40,7 +40,7 @@
     # @test_logs (:warn, r"Cannot serialize type") savetimeseries(f, x)
     _x = loadtimeseries(f)
     @test Dict(_x.metadata) == Dict{String, Any}("a" => "")
-    # @test metadata(_x) == DimensionalData.Dimensions.Lookups.NoMetadata()
+    # @test metadata(_x) == DimensionalData.Dimensions.NoMetadata()
     @test all(x .≈ _x)
     @test [all(d .≈ _d) for (d, _d) in zip(dims(x), dims(_x))] |> all
     @test parent(lookup(_x, 1)) isa Vector{Float64}

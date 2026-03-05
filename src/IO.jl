@@ -39,7 +39,7 @@ function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
 
         print(f, "\n# ")
 
-        if metadata(x) isa DimensionalData.Dimensions.Lookups.NoMetadata
+        if metadata(x) isa DimensionalData.Dimensions.NoMetadata
             print(f, "")
         else
             try
@@ -108,7 +108,7 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
 
             print(f, "\n# ")
 
-            if metadata(x) isa DimensionalData.Dimensions.Lookups.NoMetadata
+            if metadata(x) isa DimensionalData.Dimensions.NoMetadata
                 print(f, "")
             else
                 try
@@ -148,7 +148,7 @@ function loadtimeseries(f::File{format"TSV"})
         # Read the metadata
         line = readline(f)
         metadata = isempty(line[3:end]) ?
-                   DimensionalData.Dimensions.Lookups.NoMetadata() :
+                   DimensionalData.Dimensions.NoMetadata() :
                    JSON.parse(line[3:end])
 
         # Read the reference dimensions

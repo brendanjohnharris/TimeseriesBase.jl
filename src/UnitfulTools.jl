@@ -170,7 +170,7 @@ function ustripall(x::AbstractDimArray)
     return x
 end
 ustripall(d::DimensionalData.Dimension) = ustripall(parent(lookup(d)))
-ustripall(d::DimensionalData.LookupArray) = ustripall(parent(d))
+ustripall(d::DimensionalData.Lookup) = ustripall(parent(d))
 ustripall(x::String) = x
 ustripall(x::AbstractArray{T}) where {T <: Number} = x
 ustripall(x::AbstractArray{T}) where {T <: Quantity} = ustrip(x)
