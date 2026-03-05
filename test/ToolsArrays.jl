@@ -45,7 +45,7 @@
     @test locus(db) == locus(da)
     @test bounds(db) == bounds(da)
     @test layerdims(db) == layerdims(da)
-    @test index(db, Y) == DimensionalData.index(da, Y)
+    @test DimensionalData.index(db, Y) == DimensionalData.index(da, Y)
     da_intervals = set(da, X => Intervals, Y => Intervals)
     db_intervals = set(db, X => Intervals, Y => Intervals)
     @test intervalbounds(da_intervals) == intervalbounds(db_intervals)
