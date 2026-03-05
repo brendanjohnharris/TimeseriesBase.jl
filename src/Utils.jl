@@ -6,8 +6,7 @@ using TimeseriesBase.ToolsArrays
 using TimeseriesBase.TimeSeries
 using TimeseriesBase.UnitfulTools
 
-import DimensionalData.Dimensions.LookupArrays: At, Near
-import DimensionalData.Dimensions.Dimension
+import DimensionalData.Dimensions: At, Near, Dimension
 import DimensionalData: print_array, _print_array_ctx, _print_indices_vec
 import DimensionalData: At, Between, Touches, Near, Where, Contains
 using Unitful
@@ -21,7 +20,9 @@ export times, step, samplingrate, samplingperiod, duration, coarsegrain, stitch,
        abs, angle, resultant, resultantlength,
        circularmean, circularvar, circularstd,
        phasegrad,
-       addrefdim, addmetadata, align
+       addrefdim, addmetadata, align,
+       spiketrain, spiketimes,
+       Dropdims
 
 # import LinearAlgebra.mul!
 # function mul!(a::AbstractVector, b::AbstractTimeseries, args...; kwargs...)
@@ -147,6 +148,70 @@ julia> IntervalSets.Interval(ts) == (1..100)
 ```
 """
 IntervalSets.Interval(x::AbstractTimeseries) = (first ∘ times)(x) .. (last ∘ times)(x)
+
+"""
+    spiketrain(x; kwargs...)
+
+Construct a [`SpikeTrain`](@ref) from a vector of spike times `x`.
+
+The input vector `x` is sorted and converted into a binary time series where each time point
+corresponds to a spike (value of `true`).
+
+# Arguments
+- `x`: A vector of spike times (will be sorted).
+- `kwargs...`: Additional keyword arguments passed to the [`Timeseries`](@ref) constructor.
+
+# Returns
+- A [`SpikeTrain`](@ref) (binary time series) with `true` values at the sorted spike times.
+
+See also: [`spiketimes`](@ref)
+
+# Examples
+```julia
+julia> spike_times = [1.5, 3.2, 0.8, 5.1];
+julia> st = spiketrain(spike_times);
+julia> times(st)  # Returns sorted spike times: [0.8, 1.5, 3.2, 5.1]
+```
+"""
+function spiketrain(x; kwargs...)
+    Timeseries(trues(length(x)), sort(x); kwargs...)
+end
+
+"""
+    spiketimes(x::UnivariateSpikeTrain)
+    spiketimes(x::SpikeTrain)
+    spiketimes(x::AbstractArray)
+
+Extract spike times from a [`SpikeTrain`](@ref) or pass through an array unchanged.
+
+For a univariate spike train, returns the time indices where spikes occur (where the value is `true`).
+For a multivariate spike train, returns an array where each element contains the spike times for
+one channel/dimension. For a plain array, returns the array unchanged (identity function).
+
+# Arguments
+- `x`: A [`SpikeTrain`](@ref) or [`AbstractArray`](@ref).
+
+# Returns
+- For [`UnivariateSpikeTrain`](@ref): A vector of spike times.
+- For multivariate [`SpikeTrain`](@ref): An array of spike time vectors, one per channel.
+- For [`AbstractArray`](@ref): The input array unchanged.
+
+See also: [`spiketrain`](@ref), [`times`](@ref)
+
+# Examples
+```julia
+julia> spike_times = [1.0, 2.5, 4.0];
+julia> st = spiketrain(spike_times);
+julia> spiketimes(st)  # Returns [1.0, 2.5, 4.0]
+```
+"""
+function spiketimes(x::UnivariateSpikeTrain)
+    times(x[x])
+end
+function spiketimes(x::SpikeTrain)
+    map(spiketimes, eachslice(x, dims = tuple(2:ndims(x)...)))
+end
+spiketimes(x::AbstractArray) = x
 
 function interlace(x::AbstractTimeseries, y::AbstractTimeseries)
     ts = vcat(times(x), times(y))
@@ -683,4 +748,12 @@ function coarsegrain(X::AbstractDimArray; dims = nothing,
 
     return X
 end
+
+struct Dropdims <: Function
+    f::Any
+end
+function (d::Dropdims)(args...; dims = :, kwargs...)
+    Base.dropdims(d.f(args...; dims, kwargs...); dims)
+end
+
 end
