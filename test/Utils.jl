@@ -12,10 +12,12 @@ end
 
     z = ToolsArray([x, x], 𝑓(1:2))
     z = stack(z)
+    @test z isa ToolsArray
     @test y == z
 
     z = ToolsArray([x, x], 𝑓(1:2))
     y = stack(z; dims = 1)
+    @test y isa ToolsArray
     @test dims(y, 1) == 𝑓(1:2)
 end
 

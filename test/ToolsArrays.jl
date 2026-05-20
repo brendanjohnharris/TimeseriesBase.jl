@@ -1,9 +1,11 @@
-@testitem "ToolsArrays" tags=[:fast] begin
+@testitem "ToolsArrays" tags = [:fast] begin
     import DimensionalData: span, DimArrayInterface
     import Interfaces
 
-    Interfaces.test(DimArrayInterface, ToolsArray,
-                    [ToolsArray(randn(10, 10), (X(1:10), Y(1:10)))])
+    Interfaces.test(
+        DimArrayInterface, ToolsArray,
+        [ToolsArray(randn(10, 10), (X(1:10), Y(1:10)))]
+    )
 
     x = ToolsArray(randn(10), (𝑡(1:10),))
     @test x isa ToolsArray
@@ -12,17 +14,22 @@
 
     using DimensionalData
     import DimensionalData: ForwardOrdered, Regular, Points, Sampled, Metadata, order,
-                            sampling, layerdims, index, locus, Intervals, intervalbounds
+        sampling, layerdims, index, locus, Intervals, intervalbounds,
+        BasicDimArray
     a = [1 2; 3 4]
-    a2 = [1 2 3 4
-          3 4 5 6
-          4 5 6 7]
+    a2 = [
+        1 2 3 4
+        3 4 5 6
+        4 5 6 7
+    ]
     xmeta = Metadata(:meta => "X")
     ymeta = Metadata(:meta => "Y")
     tmeta = Metadata(:meta => "T")
     ameta = Metadata(:meta => "da")
-    dimz = (X(Sampled(143.0:2.0:145.0; order = ForwardOrdered(), metadata = xmeta)),
-            Y(Sampled(-38.0:2.0:-36.0; order = ForwardOrdered(), metadata = ymeta)))
+    dimz = (
+        X(Sampled(143.0:2.0:145.0; order = ForwardOrdered(), metadata = xmeta)),
+        Y(Sampled(-38.0:2.0:-36.0; order = ForwardOrdered(), metadata = ymeta)),
+    )
     dimz2 = (Dim{:row}(10:10:30), Dim{:column}(-20:10:10))
 
     refdimz = (𝑡(1:1; metadata = tmeta),)
@@ -50,6 +57,16 @@
     db_intervals = set(db, X => Intervals, Y => Intervals)
     @test intervalbounds(da_intervals) == intervalbounds(db_intervals)
 
+    # * AbstractBasicDimArray constructor
+    bmeta = Metadata(:meta => "B")
+    bda = DimArray(randn(4), (𝑡(1:4),); name = :basic, metadata = bmeta)
+    wrapped = @test_nowarn ToolsArray(bda; name = :wrapped_basic, metadata = bmeta)
+    @test wrapped isa ToolsArray
+    @test dims(wrapped) == dims(bda)
+    @test parent(wrapped) == parent(bda)
+    @test metadata(wrapped) == bmeta
+    @test name(wrapped) == :wrapped_basic
+
     # * Function constructor
     f = sin
     y = @test_nowarn ToolsArray(f, 𝑡(1:10))
@@ -67,7 +84,7 @@
     @test parent(x) isa Vector
 end
 
-@testitem "Printing" tags=[:fast] begin
+@testitem "Printing" tags = [:fast] begin
     # * Vector
     x = ToolsArray(randn(10), (𝑡(1:10),))
     @test_nowarn show(x)
@@ -95,8 +112,10 @@ end
 
     # * 4D Array of arrays.
     x = ToolsArray(fill(randn(2, 2), 3, 3), (𝑡(1:3), 𝑥(1:3)))
-    x = ToolsArray(fill(x, 2, 1, 4, 1),
-                   (𝑡(1:2), 𝑥(1:1), 𝑦(1:4), 𝑧(1:1)))
+    x = ToolsArray(
+        fill(x, 2, 1, 4, 1),
+        (𝑡(1:2), 𝑥(1:1), 𝑦(1:4), 𝑧(1:1))
+    )
     @test_nowarn show(x)
     @test_nowarn display(x)
 
@@ -106,7 +125,7 @@ end
     @test_nowarn display(x)
 end
 
-@testitem "TimeseriesBase.jl" tags=[:fast] begin
+@testitem "TimeseriesBase.jl" tags = [:fast] begin
     ts = 1:100
     x = @test_nowarn Timeseries(randn(100), ts)
     @test x isa AbstractTimeseries
@@ -122,7 +141,7 @@ end
     @test all(x[𝑡(At(1:10))] .== x[1:10])
 end
 
-@testitem "Dim queries" tags=[:fast] begin
+@testitem "Dim queries" tags = [:fast] begin
     ts = 1:100
     cs = 1:10
     x = Timeseries(randn(100, 10), ts, Dim{:channel}(cs))
@@ -144,7 +163,7 @@ end
     @test all(lookup(x[At(dims(x, 1))]) .== lookup(x[At(1:10)])) # But same elements
 end
 
-@testitem "Multivariate time series" tags=[:fast] begin
+@testitem "Multivariate time series" tags = [:fast] begin
     ts = 1:100
     x = @test_nowarn Timeseries(randn(100, 5), ts, 1:5)
     @test x isa AbstractTimeseries
@@ -159,7 +178,7 @@ end
     @test x[𝑡(1 .. 10)] == x[1:10, :]
 end
 
-@testitem "Multidimensional time series" tags=[:fast] begin
+@testitem "Multidimensional time series" tags = [:fast] begin
     x = @test_nowarn Timeseries(randn(100, 10), 𝑡(1:100), X(1:10))
     @test x isa AbstractTimeseries
     @test x isa RegularTimeseries

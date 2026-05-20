@@ -1,19 +1,19 @@
 module ToolsArrays
 
 using DimensionalData
-import DimensionalData: Dimension, NoName, NoMetadata, format
+import DimensionalData: Dimension, NoName, NoMetadata, format, AbstractBasicDimArray
 
 export AbstractToolsArray, ToolsArray,
-       ToolsDimension, ToolsDim,
-       𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs, Log𝑓, Log10𝑓
+    ToolsDimension, ToolsDim,
+    𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs, Log𝑓, Log10𝑓
 
 """
 A local type to avoid overloading and piracy issues with DimensionalData.jl
 """
-abstract type AbstractToolsArray{T, N, D, A} <: DimensionalData.AbstractDimArray{T, N, D, A} end
+abstract type AbstractToolsArray{T,N,D,A} <: DimensionalData.AbstractDimArray{T,N,D,A} end
 
-AbstractDimVector = AbstractToolsArray{T, 1} where {T}
-AbstractDimMatrix = AbstractToolsArray{T, 2} where {T}
+AbstractDimVector = AbstractToolsArray{T,1} where {T}
+AbstractDimMatrix = AbstractToolsArray{T,2} where {T}
 
 # struct ToolsArray{T, N, D <: Tuple, R <: Tuple, A <: AbstractArray{T, N}, Na, Me} <:
 #        AbstractToolsArray{T, N, D, A}
@@ -25,8 +25,8 @@ AbstractDimMatrix = AbstractToolsArray{T, 2} where {T}
 # end
 
 ## ? Constructors: see DimensionalData.jl/array/array.jl
-struct ToolsArray{T, N, D <: Tuple, R <: Tuple, A <: AbstractArray{T, N}, Na, Me} <:
-       AbstractToolsArray{T, N, D, A}
+struct ToolsArray{T,N,D<:Tuple,R<:Tuple,A<:AbstractArray{T,N},Na,Me} <:
+       AbstractToolsArray{T,N,D,A}
     data::A
     dims::D
     refdims::R
@@ -34,40 +34,44 @@ struct ToolsArray{T, N, D <: Tuple, R <: Tuple, A <: AbstractArray{T, N}, Na, Me
     metadata::Me
 
     function ToolsArray(data::A, dims::D, refdims::R, name::Na,
-                        metadata::Me) where {D <: Tuple, R <: Tuple,
-                                             A <: AbstractArray{T, N},
-                                             Na, Me} where {T, N}
+        metadata::Me) where {D<:Tuple,R<:Tuple,
+        A<:AbstractArray{T,N},
+        Na,Me} where {T,N}
         DimensionalData.checkdims(data, dims)
-        new{T, N, D, R, A, Na, Me}(data, dims, refdims, name, metadata)
+        new{T,N,D,R,A,Na,Me}(data, dims, refdims, name, metadata)
     end
 
     # * If the parent array is a AbstractDimArray, recurse until we hit the root array
     function ToolsArray(data::A, dims::D, refdims::R, name::Na,
-                        metadata::Me) where {D <: Tuple, R <: Tuple,
-                                             A <: AbstractDimArray{T, N, d, a},
-                                             Na, Me} where {T, N, d, a}
+        metadata::Me) where {D<:Tuple,R<:Tuple,
+        A<:AbstractDimArray{T,N,d,a},
+        Na,Me} where {T,N,d,a}
         DimensionalData.checkdims(parent(data), dims)
-        new{T, N, D, R, a, Na, Me}(parent(data), dims, refdims, name, metadata)
+        new{T,N,D,R,a,Na,Me}(parent(data), dims, refdims, name, metadata)
     end
 end
 # 2 arg version
 ToolsArray(data::AbstractArray, dims; kw...) = ToolsArray(data, (dims,); kw...)
-function ToolsArray(data::AbstractArray, dims::Union{Tuple, NamedTuple};
-                    refdims = (), name = NoName(), metadata = NoMetadata())
+function ToolsArray(data::AbstractArray, dims::Union{Tuple,NamedTuple};
+    refdims=(), name=NoName(), metadata=NoMetadata())
     ToolsArray(data, format(dims, data), refdims, name, metadata)
 end
 function ToolsArray(data::AbstractArray, dims::Vararg{Dimension}; kwargs...)
     ToolsArray(data, dims; kwargs...)
 end
 # All keyword argument version
-function ToolsArray(; data, dims, refdims = (), name = NoName(), metadata = NoMetadata())
+function ToolsArray(; data, dims, refdims=(), name=NoName(), metadata=NoMetadata())
     ToolsArray(data, dims; refdims, name, metadata)
 end
 # Construct from another AbstractDimArray
 function ToolsArray(A::AbstractDimArray;
-                    data = parent(A), dims = dims(A), refdims = refdims(A), name = name(A),
-                    metadata = metadata(A))
+    data=parent(A), dims=dims(A), refdims=refdims(A), name=name(A),
+    metadata=metadata(A))
     ToolsArray(data, dims; refdims, name, metadata)
+end
+function ToolsArray(A::AbstractBasicDimArray; data=parent(A), dims=dims(A),
+    kwargs...)
+    ToolsArray(data, dims; kwargs...)
 end
 ToolsArray{T}(A::AbstractToolsArray; kw...) where {T} = ToolsArray(convert.(T, A))
 ToolsArray{T}(A::AbstractToolsArray{T}; kw...) where {T} = ToolsArray(A; kw...)
@@ -80,12 +84,12 @@ Apply function `f` across the values of the dimension `dim`
 the given dimension. Optionally provide a name for the result.
 """
 function ToolsArray(f::Function, dim::Dimension;
-                    name = Symbol(nameof(f), "(", name(dim), ")"), kwargs...)
+    name=Symbol(nameof(f), "(", name(dim), ")"), kwargs...)
     ToolsArray(map(f, val(dim)), (dim,); name, kwargs...)
 end
 function ToolsArray(f::Function, dims::Vararg{Dimension};
-                    name = Symbol(nameof(f), "(", join(name.(dims), ','), ")"),
-                    kwargs...)
+    name=Symbol(nameof(f), "(", join(name.(dims), ','), ")"),
+    kwargs...)
     data = map(Iterators.product(map(val, dims)...)) do args
         f(args...)
     end
@@ -100,7 +104,7 @@ function ToolsArray(D::DimensionalData.DimArray)
 end
 
 @inline function DimensionalData.rebuild(A::ToolsArray, data::AbstractArray, dims::Tuple,
-                                         refdims::Tuple, name, metadata)
+    refdims::Tuple, name, metadata)
     ToolsArray(data, dims, refdims, name, metadata)
 end
 
@@ -147,13 +151,13 @@ to `DimensionalData.Dimension` for dispatch purposes.
 ## See also
 - [`ToolsDim`](@ref)
 """
-ToolsDimension = Union{𝑡, 𝑥, 𝑧, 𝑦, 𝑓, Var, Obs, ToolsDim}
+ToolsDimension = Union{𝑡,𝑥,𝑧,𝑦,𝑓,Var,Obs,ToolsDim}
 
 function DimensionalData.dimconstructor(::Tuple{ToolsDimension,
-                                                Vararg{DimensionalData.Dimension}})
+    Vararg{DimensionalData.Dimension}})
     ToolsArray
 end
-DimensionalData.dimconstructor(::Tuple{<:ToolsDimension, Vararg}) = ToolsArray
+DimensionalData.dimconstructor(::Tuple{<:ToolsDimension,Vararg}) = ToolsArray
 DimensionalData.dimconstructor(dims::ToolsDimension) = ToolsArray
 
 end

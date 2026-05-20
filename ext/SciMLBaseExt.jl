@@ -62,8 +62,8 @@ function Timeseries(sol::AbstractTimeseriesSolution{T, N, <:AbstractVector{V}}) 
 end
 
 function Timeseries(sol::AbstractEnsembleSolution{T, N, S};
-                    dims = Obs(1:length(sol))) where {T, N, S}
-    ToolsArray(map(Timeseries, sol), dims)
+                    dims = Obs(1:length(sol.u))) where {T, N, S}
+    ToolsArray(map(Timeseries, sol.u), dims)
 end
 
 end # module
