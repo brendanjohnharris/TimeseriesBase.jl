@@ -13,7 +13,8 @@ using Unitful
 using Statistics
 
 export times, step, samplingrate, samplingperiod, duration, coarsegrain, stitch,
-    buffer, window, delayembed, rectifytime, rectify, matchdim, interlace,
+    buffer, window, delayembed, rectifytime, rectify, matchdim, regularize,
+    interlace,
     centraldiff!, centraldiff, centralderiv!, centralderiv,
     rightdiff!, rightdiff, rightderiv!, rightderiv,
     leftdiff!, leftdiff, leftderiv!, leftderiv,
@@ -308,169 +309,341 @@ function delayembed(x::UnivariateRegular, n, τ, p=1, args...; kwargs...)
     y = stack(y, dims=1) # dims=1 so time is on first dimension
 end
 
-function rectify(ts::DimensionalData.Dimension; tol=4, zero=false, extend=false,
-    atol=nothing)
-    u = unit(eltype(ts))
-    ts = collect(ts)
-    origts = ts
-    stp = ts |> diff |> mean
-    err = ts |> diff |> std
-    tol = Int(tol - round(log10(stp |> ustripall)))
+# ============================================================================
+# regularize: unified replacement for rectify / rectifytime / matchdim.
+#
+# One operation, three methods:
+#
+#   regularize(d::Dimension; ...)                  → (new_lookup, orig_lookup)
+#   regularize(X::AbstractDimArray; dims=𝑡, ...)   → X with regular lookup(s)
+#   regularize(Xs::AbstractVector{<:AbstractDimArray}; dims=𝑡, ...)
+#       regularize(X1, X2, ...; dims=𝑡, ...)        → vector of arrays sharing
+#                                                     a single regular grid
+#
+# Tolerance semantics (only one knob, with no silent rescaling):
+#   - `atol`: max allowed absolute deviation of any input lookup point from the
+#     best-fit regular grid. Used as both the regularity check and the rounding
+#     precision. Carries the dim's units. Default `1e-6 * mean_step`.
+#   - `sigdigits`: optional override for the number of significant digits used
+#     to round the step / endpoints. Default: derived from `atol` so rounding
+#     never coarsens beyond the tolerance.
+#   - `strict=true` (default): throw on regularity failure rather than warn and
+#     pass through silently. Set `strict=false` to recover the old behaviour.
+#
+# Differences from the legacy trio:
+#   - The grid is built directly with `range(start, step, length)` — no
+#     "extend by 10000*stp then trim" trick.
+#   - The regularity check is `maximum(abs(t - best_fit))`, which catches drift
+#     and isolated gaps that std-of-diffs misses; the warning names the worst
+#     offender.
+#   - `zero=true` stores the *genuine* original lookup in metadata.
+#   - `regularize(X1, X2, ...)` is the single "align to common grid" path used
+#     by both the old vararg `rectify` and `matchdim`.
+# ============================================================================
 
-    if isnothing(atol) && ustripall(err) > exp10(-tol - 1)
-        @warn "Step $stp is not approximately constant (err=$err, tol=$(exp10(-tol-1))), skipping rectification"
-    else
-        if !isnothing(atol)
-            tol = atol
-        end
-        stp = u == NoUnits ? round(stp; digits=tol) : round(u, stp; digits=tol)
-        t0, t1 = u == NoUnits ? round.(extrema(ts); digits=tol) :
-                 round.(u, extrema(ts); digits=tol)
-        if zero
-            origts = t0:stp:(t1+(10000*stp))
-            t1 = t1 - t0
-            t0 = 0
-        end
-        if extend
-            ts = t0:stp:(t1+(10000*stp))
-        else
-            ts = range(start=t0, step=stp, length=length(ts))
-        end
+# Fit `t[i] ≈ a + b·(i-1)` by ordinary least squares over `i = 1..n`. Closed
+# form, O(n), no allocations beyond the input. Distributes residual evenly
+# across all samples (unlike endpoint-pinning, which forces error onto the
+# interior and is sensitive to a noisy first/last sample).
+#
+# Returns `(start, step)` in the bare (unit-stripped) numeric type.
+function _lsq_regular_fit(tsbare::AbstractVector)
+    n = length(tsbare)
+    # sum_{i=0..n-1} i  = n(n-1)/2;  sum i² = n(n-1)(2n-1)/6
+    # Centred form keeps the denominator exact and avoids cancellation.
+    ibar = (n - 1) / 2
+    tbar = sum(tsbare) / n
+    num = zero(eltype(tsbare))
+    den = zero(typeof(ibar))
+    @inbounds for i in 1:n
+        di = (i - 1) - ibar
+        num += di * (tsbare[i] - tbar)
+        den += di * di
     end
-    return parent(ts), origts
+    b = num / den          # step
+    a = tbar - b * ibar    # start (value at i=1, since ibar is offset from i=1)
+    return a, b
 end
 
-function rectify(X::AbstractDimArray; dims, tol=4, zero=false, kwargs...) # tol gives significant figures for rounding
-    if !(dims isa Tuple || dims isa AbstractVector)
-        dims = [dims]
+# Round `x` to the nearest integer multiple of `q`. Scale-invariant and
+# unit-friendly: `_round_to(0.10000001, 1e-8) == 0.1` regardless of whether
+# the values are seconds, samples, or megaparsecs.
+_round_to(x, q) = q > 0 ? round(x / q) * q : x
+
+# Bare-bones lookup → (regular_range, orig_values, max_dev, worst_idx).
+# `orig` is the untouched input collected to a vector so callers that want to
+# preserve the raw lookup (e.g. `zero=true`) have it.
+function _fit_regular_grid(ts::AbstractVector; atol=nothing, sigdigits=nothing)
+    n = length(ts)
+    n < 2 && throw(ArgumentError("regularize: need at least 2 lookup points, got $n"))
+    u = unit(eltype(ts))
+    tsbare = ustripall(ts)
+
+    # Fast path: input is already a regular range. No fit needed, no rounding
+    # error introduced, and we can report exactly zero deviation.
+    if ts isa AbstractRange && step(ts) isa Number
+        grid_zero_dev = u == NoUnits ? zero(eltype(tsbare)) : zero(eltype(tsbare)) * u
+        return ts, collect(ts), grid_zero_dev, 1
     end
-    for dim in dims
-        ts, origts = rectify(DimensionalData.dims(X, dim); tol, zero, extend=true,
-            kwargs...)
-        ts = ts[1:size(X, dim)] # Should be ok?
-        @assert length(ts) == size(X, dim)
-        X = set(X, dim => ts)
-        @assert lookup(X, dim) == ts
+
+    issorted(tsbare) ||
+        throw(ArgumentError("regularize: input lookup is not sorted; sort it first"))
+
+    t0bare, stpbare = _lsq_regular_fit(tsbare)
+    fit = range(start=t0bare, step=stpbare, length=n)
+    devs = abs.(tsbare .- fit)
+    maxdev, worst = findmax(devs)
+
+    # Rounding precision. The legacy code rounded to a decimal-digit count,
+    # which silently couples to the magnitude of the step. We instead round
+    # both start and step to a multiple of `q`, where `q` is one tenth of
+    # `atol` (so rounding error is always < atol/10, well below the
+    # acceptance threshold). `sigdigits` is a manual override.
+    atolbare = atol === nothing ? nothing : ustripall(atol)
+    t0_r, stp_r = if sigdigits !== nothing
+        round(t0bare; sigdigits), round(stpbare; sigdigits)
+    elseif atolbare !== nothing && atolbare > 0
+        q = atolbare / 10
+        _round_to(t0bare, q), _round_to(stpbare, q)
+    else
+        # No tolerance given: round to a multiple of step·1e-12, which is
+        # well below Float64 noise but well above typical jitter.
+        q = abs(stpbare) * 1e-12
+        _round_to(t0bare, q), _round_to(stpbare, q)
+    end
+
+    grid_bare = range(start=t0_r, step=stp_r, length=n)
+    grid = u == NoUnits ? grid_bare : grid_bare .* u
+    maxdev_u = u == NoUnits ? maxdev : maxdev * u
+    return grid, collect(ts), maxdev_u, worst
+end
+
+# Default tolerance: 1e-6 of the step magnitude. Tight enough to catch real
+# irregularity, loose enough to absorb the float jitter that motivates calling
+# this in the first place. Caller should pass the LSQ-fitted step (with units)
+# so we don't re-fit.
+_default_atol(step_with_units) = 1e-6 * abs(step_with_units)
+
+function _check_regularity(maxdev, worst, ts, dim, atol, fitted_step; strict=true)
+    tol = atol === nothing ? _default_atol(fitted_step) : atol
+    if maxdev > tol
+        msg = "regularize: lookup along $dim is not regular within atol=$tol " *
+              "(max deviation $maxdev at index $worst, value $(ts[worst]))"
+        strict ? throw(ArgumentError(msg)) : @warn msg
+        return false
+    end
+    return true
+end
+
+"""
+    regularize(d::DimensionalData.Dimension; atol=nothing, sigdigits=nothing,
+               strict=true)
+
+Return `(new_lookup, original_lookup)` where `new_lookup` is a regular `range`
+that best fits the values of `d` and `original_lookup` is the input lookup
+collected to a vector.
+
+Use this method when you want to inspect the rectified grid yourself; most
+callers should use [`regularize`](@ref) on an `AbstractDimArray` instead.
+
+# Keyword arguments
+- `atol`: maximum allowed absolute deviation of any lookup point from the
+  best-fit regular grid. Carries units if the lookup does. If `nothing`, a
+  permissive `~1e3 * eps` floor is used.
+- `sigdigits`: override the number of digits used to round the step and
+  start. Defaults to a value derived from `atol` so rounding error stays
+  within tolerance.
+- `strict=true`: throw if regularity fails. Set `false` to warn and return the
+  best-fit grid anyway.
+"""
+function regularize(d::DimensionalData.Dimension; atol=nothing, sigdigits=nothing,
+    strict=true, dim_label=nameof(typeof(d)))
+    ts = collect(d)
+    grid, orig, maxdev, worst = _fit_regular_grid(ts; atol, sigdigits)
+    _check_regularity(maxdev, worst, ts, dim_label, atol, step(grid); strict)
+    return grid, orig
+end
+
+"""
+    regularize(X::AbstractDimArray; dims=𝑡, atol=nothing, sigdigits=nothing,
+               zero=false, strict=true)
+
+Replace the lookup of `X` along each of `dims` with a regular range that best
+fits the existing values, repairing accumulated float jitter. If a lookup
+deviates from regular by more than `atol` an `ArgumentError` is thrown
+(`strict=false` downgrades this to a warning).
+
+If `zero=true`, the new lookup starts at zero and the genuine original
+lookup is stored in `metadata(X)` under the dimension name.
+
+This replaces the older `rectify` and `rectifytime` methods.
+"""
+function regularize(X::AbstractDimArray; dims=𝑡, atol=nothing, sigdigits=nothing,
+    zero=false, strict=true)
+    dimlist = (dims isa Tuple || dims isa AbstractVector) ? collect(dims) : [dims]
+    for dim in dimlist
+        d = DimensionalData.dims(X, dim)
+        grid, orig = regularize(d; atol, sigdigits, strict,
+            dim_label=DimensionalData.name(d))
+        new_grid = zero ? range(start=Base.zero(first(grid)), step=step(grid),
+            length=length(grid)) : grid
+        X = set(X, dim => parent(new_grid))
         if zero
-            X = rebuild(X; metadata=(Symbol(dim) => origts, pairs(metadata(X))...))
+            X = rebuild(X;
+                metadata=(Symbol(DimensionalData.name(d)) => orig,
+                    pairs(metadata(X))...))
         end
     end
     return X
 end
 
-function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false,
-    kwargs...)
+"""
+    regularize(Xs::AbstractVector{<:AbstractDimArray}; dims=𝑡, atol=nothing,
+               sigdigits=nothing, zero=false, strict=true)
+    regularize(X1, X2, ...; dims=𝑡, kwargs...)
 
-    # Ensure dims is iterable
-    if !(dims isa Tuple || dims isa AbstractVector)
-        dims = [dims]
-    end
+Align a collection of arrays to a common regular grid along each of `dims`.
 
-    # Process each dimension
-    for dim in dims
-        # Extract dimension values from all arrays
-        all_dims = [DimensionalData.dims(x, dim) for x in X]
+The shared grid is computed from the element-wise mean of the lookups *after*
+each array has been cropped to the maximal common range and trimmed to the
+minimum common length. The same regularity check that the single-array method
+uses then applies to every input array — if any one of them deviates from the
+common grid by more than `atol`, an `ArgumentError` is thrown (or a warning,
+under `strict=false`) naming the offending array and index.
 
-        # Find common range across all arrays
-        mint = maximum([minimum(d) for d in all_dims])
-        maxt = minimum([maximum(d) for d in all_dims])
+This replaces the older `matchdim` and the vararg form of `rectify`.
+"""
+function regularize(Xs::AbstractVector{<:AbstractDimArray}; dims=𝑡, atol=nothing,
+    sigdigits=nothing, zero=false, strict=true)
+    isempty(Xs) && return Xs
+    dimlist = (dims isa Tuple || dims isa AbstractVector) ? collect(dims) : [dims]
 
-        # Check if there's overlap
-        if mint > maxt
-            @error "No overlapping range found for dimension $dim"
-            return X
-        end
+    for dim in dimlist
+        all_dims = [DimensionalData.dims(x, dim) for x in Xs]
+        # Crop to the maximal common range, then trim to the minimum common length.
+        mint = maximum(minimum(d) for d in all_dims)
+        maxt = minimum(maximum(d) for d in all_dims)
+        mint > maxt &&
+            throw(ArgumentError("regularize: no overlapping range along $dim"))
+        Xs = [x[DimensionalData.dims(x, dim)(mint .. maxt)] for x in Xs]
+        L = minimum(size(x, dim) for x in Xs)
+        Xs = [selectdim(x, dimnum(x, dim), 1:L) for x in Xs]
 
-        # Subset all arrays to common range (with small tolerance for floating point)
-        u = unit(eltype(all_dims[1]))
-        tol_val = u == NoUnits ? exp10(-tol) : exp10(-tol) * u
-        common_range = (mint - tol_val) .. (maxt + tol_val)
-        X = [x[dim(common_range)] for x in X]
+        # Common grid from the element-wise mean of the (cropped, trimmed)
+        # lookups.
+        lookups = [collect(DimensionalData.dims(x, dim)) for x in Xs]
+        mean_lookup = mean(lookups)
+        grid, _ = _fit_regular_grid(mean_lookup; atol, sigdigits)
 
-        # Find minimum common length
-        min_length = minimum([size(x, dim) for x in X])
-        X = [selectdim(x, dimnum(x, dim), 1:min_length) for x in X]
-
-        # Compute mean dimension values for rectification
-        mean_dim_vals = mean([collect(DimensionalData.dims(x, dim)) for x in X])
-
-        # Rectify using the mean dimension values
-        ts, origts = rectify(rebuild(DimensionalData.dims(X[1], dim), mean_dim_vals);
-            tol=tol, zero=zero, extend=true, kwargs...)
-
-        # Trim to actual size
-        ts = ts[1:min_length]
-
-        # Verify rectification is within tolerance
-        for (i, x) in enumerate(X)
-            x_dims = collect(DimensionalData.dims(x, dim))
-            max_diff = maximum(abs.(ts .- x_dims))
-            # Base tolerance on rectification precision, not step variability
-            u = unit(eltype(x_dims))
-            expected_tol = u == NoUnits ? exp10(-tol) : exp10(-tol) * u
-
-            if max_diff > expected_tol
-                @warn "Array $i: dimension $dim differs from rectified values by up to $max_diff (tolerance: $expected_tol)"
+        # Verify every input is within tolerance of the common grid and
+        # report the worst offender by array index.
+        dim_label = DimensionalData.name(DimensionalData.dims(Xs[1], dim))
+        tol = atol === nothing ? _default_atol(step(grid)) : atol
+        for (i, xl) in enumerate(lookups)
+            devs = abs.(xl .- grid)
+            maxdev, worst = findmax(devs)
+            if maxdev > tol
+                msg = "regularize: array $i lookup along $dim_label deviates " *
+                      "from common grid by $maxdev > atol=$tol " *
+                      "(worst at index $worst, value $(xl[worst]))"
+                strict ? throw(ArgumentError(msg)) : @warn msg
             end
         end
 
-        # Apply rectified dimension to all arrays
-        X = [set(x, dim => ts) for x in X]
-
-        # Add original dimension values to metadata if zero=true
-        if zero
-            X = [rebuild(x;
-                metadata=(Symbol(dim) => origts[1:min_length],
-                    pairs(metadata(x))...)) for x in X]
+        # Apply the (possibly zero-shifted) grid and stash the *genuine*
+        # original lookup (captured before `set`).
+        new_grid = zero ? range(start=Base.zero(first(grid)), step=step(grid),
+            length=length(grid)) : grid
+        Xs = map(zip(Xs, lookups)) do (x, origlk)
+            x = set(x, dim => parent(new_grid))
+            zero ?
+            rebuild(x;
+                metadata=(Symbol(dim_label) => origlk, pairs(metadata(x))...)) :
+            x
         end
     end
-
-    return X
+    return Xs
 end
 
-rectifytime(ts::𝑡; kwargs...) = rectify(ts; kwargs...)
+regularize(X1::AbstractDimArray, Xrest::AbstractDimArray...; kwargs...) =
+    regularize(AbstractDimArray[X1, Xrest...]; kwargs...)
+
+# ----------------------------------------------------------------------------
+# Deprecated forwarders. Kept thin: translate the legacy `tol` (significant
+# digits) to the new `atol`/`sigdigits` knobs and call `regularize`. The
+# `strict=false` defaults preserve the legacy "warn and pass through" feel.
+# ----------------------------------------------------------------------------
+
+_tol_to_atol(tol) = exp10(-tol)
 
 """
-    rectifytime(X::AbstractTimeseries; tol = 6, zero = false)
+    rectify(d::Dimension; tol=4, zero=false, extend=false, atol=nothing)
 
-Rectifies the time values of an [`IrregularTimeseries`](@ref). Checks if the time step of
-the input time series is approximately constant. If it is, the function rounds the time step
-and constructs a [`RegularTimeseries`](@ref) with range time indices. If the time step is
-not approximately constant, a warning is issued and the rectification is skipped.
-
-# Arguments
-- `X::IrregularTimeseries`: The input time series.
-- `tol::Int`: The number of significant figures for rounding the time step. Default is 6.
-- `zero::Bool`: If `true`, the rectified time values will start from zero. Default is
-  `false`.
+!!! warning "Deprecated"
+    Use [`regularize`](@ref) instead. The legacy `tol` (significant figures)
+    knob has been replaced by `atol` (absolute tolerance) plus `sigdigits`.
 """
-rectifytime(X::Vararg{AbstractTimeseries}; kwargs...) = rectify(X...; dims=𝑡, kwargs...)
+function rectify(ts::DimensionalData.Dimension; tol=4, zero=false, extend=false,
+    atol=nothing)
+    Base.depwarn("`rectify(::Dimension)` is deprecated; use `regularize` instead.",
+        :rectify)
+    extend &&
+        @warn "`extend=true` is no longer supported and has been ignored. " *
+              "Use `regularize` with explicit `length`/`range` if you need a " *
+              "longer grid."
+    atol_effective = atol === nothing ? _tol_to_atol(tol) * unit(eltype(ts)) : atol
+    u = unit(eltype(ts))
+    atol_effective = u == NoUnits ? ustripall(atol_effective) : atol_effective
+    grid, orig = regularize(ts; atol=atol_effective, strict=false)
+    grid = zero ? grid .- first(grid) : grid
+    return parent(grid), orig
+end
 
+"""
+    rectify(X::AbstractDimArray; dims, tol=4, zero=false)
+    rectify(X1, X2, ...; dims=𝑡, tol=4, zero=false)
+
+!!! warning "Deprecated"
+    Use [`regularize`](@ref) instead.
+"""
+function rectify(X::AbstractDimArray; dims, tol=4, zero=false, kwargs...)
+    Base.depwarn("`rectify` is deprecated; use `regularize` instead.", :rectify)
+    atol = get(kwargs, :atol, _tol_to_atol(tol))
+    regularize(X; dims, atol, zero, strict=false)
+end
+
+function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false, kwargs...)
+    Base.depwarn("`rectify(X1, X2, ...)` is deprecated; use `regularize` instead.",
+        :rectify)
+    atol = get(kwargs, :atol, _tol_to_atol(tol))
+    regularize(collect(X); dims, atol, zero, strict=false)
+end
+
+"""
+    rectifytime(X::AbstractTimeseries; tol=6, zero=false)
+
+!!! warning "Deprecated"
+    Use [`regularize`](@ref) (which defaults `dims=𝑡`) instead.
+"""
+rectifytime(ts::𝑡; kwargs...) = (Base.depwarn(
+        "`rectifytime` is deprecated; use `regularize` instead.", :rectifytime);
+    rectify(ts; kwargs...))
+
+rectifytime(X::Vararg{AbstractTimeseries}; kwargs...) = (Base.depwarn(
+        "`rectifytime` is deprecated; use `regularize` instead.", :rectifytime);
+    rectify(X...; dims=𝑡, kwargs...))
+
+"""
+    matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false)
+
+!!! warning "Deprecated"
+    Use [`regularize`](@ref) on a vector of arrays instead.
+"""
 function matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false,
     kwargs...)
-    # Generate some common time indices as close as possible to the rectified times of each element of the input vector. At most this will change each time index by a maximum of 1 sampling period. We could do better--maximum of a half-- but leave that for now.
-    u = lookup(X |> first, dims) |> eltype |> unit
-    ts = lookup.(X, [dims])
-    mint = (maximum(minimum.(ts)) - exp10(-tol) * u) ..
-           (minimum(maximum.(ts)) + exp10(-tol) * u)
-    X = map(X) do x
-        d = rebuild(DimensionalData.dims(x, dims), mint)
-        x = getindex(x, d)
-    end
-    L = minimum(size.(X, dims))
-    X = map(X) do x
-        d = rebuild(DimensionalData.dims(x, dims), 1:L)
-        x = getindex(x, d) # Should now have same length for all inputs
-    end
-
-    ts = mean(lookup.(X, [dims]))
-    ts, origts = rectify(rebuild(DimensionalData.dims(X[1], dims), ts); tol, zero,
-        kwargs...)
-    if any([any(ts .- lookup(x, dims) .> std(ts) / exp10(-tol)) for x in X])
-        @error "Cannot find common dimension indices within tolerance"
-    end
-    X = [set(x, rebuild(DimensionalData.dims(x, dims), ts)) for x in X]
-    return X
+    Base.depwarn("`matchdim` is deprecated; use `regularize` instead.", :matchdim)
+    atol = get(kwargs, :atol, _tol_to_atol(tol))
+    regularize(X; dims, atol, zero, strict=false)
 end
 
 phasegrad(x::Real, y::Real) = mod(x - y + π, 2π) - π # +pi - pi because we want the difference mapped from -pi to +pi, so we can represent negative changes.
