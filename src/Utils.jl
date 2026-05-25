@@ -35,28 +35,30 @@ Selectors = [:At, :Between, :Touches, :Near, :Where, :Contains]
 [:($(S)(D::Dimension) = $(S)(D.val.data)) for S in Selectors] .|> eval
 
 description(x) = "$(size(x)) $(typeof(x).name.name)"
-function print_array(io::IO, mime, A::AbstractDimArray{T,0}) where {T<:AbstractArray}
-    print(_print_array_ctx(io, T), "\n", description.(A[]))
+function print_array(io::IO, mime, A::AbstractDimArray{T, 0}) where {T <: AbstractArray}
+    return print(_print_array_ctx(io, T), "\n", description.(A[]))
 end
-function print_array(io::IO, mime, A::AbstractToolsArray{T,1}) where {T<:AbstractArray}
-    Base.print_matrix(_print_array_ctx(io, T), description.(A))
+function print_array(io::IO, mime, A::AbstractToolsArray{T, 1}) where {T <: AbstractArray}
+    return Base.print_matrix(_print_array_ctx(io, T), description.(A))
 end
-function print_array(io::IO, mime, A::AbstractToolsArray{T,2}) where {T<:AbstractArray}
-    Base.print_matrix(_print_array_ctx(io, T), description.(A))
+function print_array(io::IO, mime, A::AbstractToolsArray{T, 2}) where {T <: AbstractArray}
+    return Base.print_matrix(_print_array_ctx(io, T), description.(A))
 end
-function print_array(io::IO, mime, A::AbstractToolsArray{T,3}) where {T<:AbstractArray}
+function print_array(io::IO, mime, A::AbstractToolsArray{T, 3}) where {T <: AbstractArray}
     i3 = firstindex(A, 3)
     frame = view(A, :, :, i3)
     _print_indices_vec(io, i3)
-    Base.print_matrix(_print_array_ctx(io, T), description.(frame))
+    return Base.print_matrix(_print_array_ctx(io, T), description.(frame))
 end
-function print_array(io::IO, mime,
-    A::AbstractToolsArray{T,N}) where {T<:AbstractArray,N}
+function print_array(
+        io::IO, mime,
+        A::AbstractToolsArray{T, N}
+    ) where {T <: AbstractArray, N}
     o = ntuple(x -> firstindex(A, x + 2), N - 2)
     frame = view(A, :, :, o...)
 
     _print_indices_vec(io, o...)
-    Base.print_matrix(_print_array_ctx(io, T), description.(frame))
+    return Base.print_matrix(_print_array_ctx(io, T), description.(frame))
 end
 
 """
@@ -87,7 +89,7 @@ julia> rts = Timeseries(x, t);
 julia> step(rts) == 1
 ```
 """
-Base.step(x::RegularTimeseries; dims=𝑡) = lookup(x, dims) |> step
+Base.step(x::RegularTimeseries; dims = 𝑡) = lookup(x, dims) |> step
 
 """
     samplingrate(x::RegularTimeseries)
@@ -175,7 +177,7 @@ julia> times(st)  # Returns sorted spike times: [0.8, 1.5, 3.2, 5.1]
 ```
 """
 function spiketrain(x; kwargs...)
-    Timeseries(trues(length(x)), sort(x); kwargs...)
+    return Timeseries(trues(length(x)), sort(x); kwargs...)
 end
 
 """
@@ -207,10 +209,10 @@ julia> spiketimes(st)  # Returns [1.0, 2.5, 4.0]
 ```
 """
 function spiketimes(x::UnivariateSpikeTrain)
-    times(x[x])
+    return times(x[x])
 end
 function spiketimes(x::SpikeTrain)
-    map(spiketimes, eachslice(x, dims=tuple(2:ndims(x)...)))
+    return map(spiketimes, eachslice(x, dims = tuple(2:ndims(x)...)))
 end
 spiketimes(x::AbstractArray) = x
 
@@ -223,19 +225,19 @@ function interlace(x::AbstractTimeseries, y::AbstractTimeseries)
     return Timeseries(data, ts)
 end
 
-function _buffer(x, n::Integer, p::Integer=0; discard::Bool=true)
-    y = [@views x[i:min(i + n - 1, end)] for i in 1:(n-p):length(x)]
+function _buffer(x, n::Integer, p::Integer = 0; discard::Bool = true)
+    y = [@views x[i:min(i + n - 1, end)] for i in 1:(n - p):length(x)]
     while discard && length(y[end]) < n
         pop!(y)
     end
-    y
+    return y
 end
-function _buffer(x::AbstractMatrix, n::Integer, p::Integer=0; discard::Bool=true)
-    y = [@views x[i:min(i + n - 1, end), :] for i in 1:(n-p):size(x, 1)]
+function _buffer(x::AbstractMatrix, n::Integer, p::Integer = 0; discard::Bool = true)
+    y = [@views x[i:min(i + n - 1, end), :] for i in 1:(n - p):size(x, 1)]
     while discard && size(y[end], 1) < n
         pop!(y)
     end
-    y
+    return y
 end
 buffer(x::AbstractVector, args...; kwargs...) = _buffer(x, args...; kwargs...)
 
@@ -259,7 +261,7 @@ function buffer(x::RegularTimeseries, args...; kwargs...)
     t = _buffer(times(x), args...; kwargs...) .|> mean
     # For a regular time series, the buffer centres are regular
     ts = range(first(t), last(t), length(y))
-    y = Timeseries(y, ts)
+    return y = Timeseries(y, ts)
 end
 
 """
@@ -274,11 +276,11 @@ Window a time series `x` with a given window length and step between successive 
 
 See also: [`buffer`](@ref), [`delayembed`](@ref), [`coarsegrain`](@ref)
 """
-window(x, n, p=n, args...; kwargs...) = buffer(x, n, n - p, args...; kwargs...)
+window(x, n, p = n, args...; kwargs...) = buffer(x, n, n - p, args...; kwargs...)
 
-function _delayembed(x::AbstractVector, n, τ, p=1; kwargs...) # A delay embedding with dimension `n`, delay `τ`, and skip length of `p`
+function _delayembed(x::AbstractVector, n, τ, p = 1; kwargs...) # A delay embedding with dimension `n`, delay `τ`, and skip length of `p`
     y = window(x, n * τ, p; kwargs...)
-    y = map(y) do _y
+    return y = map(y) do _y
         @view _y[1:τ:end]
     end
 end
@@ -297,16 +299,16 @@ Delay embed a univariate time series `x` with a given dimension `n`, delay `τ`,
 
 See also: [`buffer`](@ref), [`window`](@ref)
 """
-function delayembed(x::UnivariateRegular, n, τ, p=1, args...; kwargs...)
+function delayembed(x::UnivariateRegular, n, τ, p = 1, args...; kwargs...)
     y = _delayembed(x, n, τ, p, args...; kwargs...)
     ts = last.(times.(y))  # Time of the head of the vector
     dt = step(x) * p
-    ts = ts[1]:dt:(ts[1]+dt*(length(y)-1))
+    ts = ts[1]:dt:(ts[1] + dt * (length(y) - 1))
     δt = τ * p * step(x)
     delays = (-(δt * (n - 1))):δt:0
     y = set.(y, [𝑡 => Dim{:delay}(delays)])
     y = set(y, 𝑡 => ts) # Set time index to start time of each time series
-    y = stack(y, dims=1) # dims=1 so time is on first dimension
+    return y = stack(y, dims = 1) # dims=1 so time is on first dimension
 end
 
 # ============================================================================
@@ -365,15 +367,20 @@ function _lsq_regular_fit(tsbare::AbstractVector)
     return a, b
 end
 
-# Round `x` to the nearest integer multiple of `q`. Scale-invariant and
-# unit-friendly: `_round_to(0.10000001, 1e-8) == 0.1` regardless of whether
-# the values are seconds, samples, or megaparsecs.
-_round_to(x, q) = q > 0 ? round(x / q) * q : x
+# Round `x` to the decimal place implied by the quantum `q` (the rounding
+# precision). We deliberately round to a decimal *place* rather than to a
+# literal multiple of `q`: `round(x/q)*q` reintroduces float error (neither
+# `x/q`, `q`, nor their product is exact), so even a clean `0.1` would come
+# back as `0.10000000000000002`. `round(x; digits)` instead returns the
+# closest `Float64` to the base-10 rounded value, so decimal-friendly steps
+# (0.1, 0.25, 1e6, …) snap back exactly. Still scale-invariant: the decimal
+# place tracks the magnitude of `q`, which itself tracks the step/atol.
+_round_to(x, q) = q > 0 ? round(x; digits = -floor(Int, log10(q))) : x
 
 # Bare-bones lookup → (regular_range, orig_values, max_dev, worst_idx).
 # `orig` is the untouched input collected to a vector so callers that want to
 # preserve the raw lookup (e.g. `zero=true`) have it.
-function _fit_regular_grid(ts::AbstractVector; atol=nothing, sigdigits=nothing)
+function _fit_regular_grid(ts::AbstractVector; atol = nothing, sigdigits = nothing)
     n = length(ts)
     n < 2 && throw(ArgumentError("regularize: need at least 2 lookup points, got $n"))
     u = unit(eltype(ts))
@@ -390,15 +397,16 @@ function _fit_regular_grid(ts::AbstractVector; atol=nothing, sigdigits=nothing)
         throw(ArgumentError("regularize: input lookup is not sorted; sort it first"))
 
     t0bare, stpbare = _lsq_regular_fit(tsbare)
-    fit = range(start=t0bare, step=stpbare, length=n)
+    fit = range(start = t0bare, step = stpbare, length = n)
     devs = abs.(tsbare .- fit)
     maxdev, worst = findmax(devs)
 
-    # Rounding precision. The legacy code rounded to a decimal-digit count,
-    # which silently couples to the magnitude of the step. We instead round
-    # both start and step to a multiple of `q`, where `q` is one tenth of
-    # `atol` (so rounding error is always < atol/10, well below the
-    # acceptance threshold). `sigdigits` is a manual override.
+    # Rounding precision. The legacy code rounded to a fixed decimal-digit
+    # count, which silently couples to the magnitude of the step. We instead
+    # round start and step to the decimal place implied by `q` (see
+    # `_round_to`), where `q` is one tenth of `atol` — so rounding error is
+    # always < atol/10, well below the acceptance threshold, while the
+    # precision still scales with the data. `sigdigits` is a manual override.
     atolbare = atol === nothing ? nothing : ustripall(atol)
     t0_r, stp_r = if sigdigits !== nothing
         round(t0bare; sigdigits), round(stpbare; sigdigits)
@@ -406,13 +414,15 @@ function _fit_regular_grid(ts::AbstractVector; atol=nothing, sigdigits=nothing)
         q = atolbare / 10
         _round_to(t0bare, q), _round_to(stpbare, q)
     else
-        # No tolerance given: round to a multiple of step·1e-12, which is
-        # well below Float64 noise but well above typical jitter.
-        q = abs(stpbare) * 1e-12
+        # No tolerance given: round at `default_atol/10`, where
+        # default_atol = step·1e-6 (see `_default_atol`). This keeps the
+        # rounding error well below the regularity threshold and lets
+        # near-integer / near-rational lookups snap back to clean values.
+        q = abs(stpbare) * 1.0e-7
         _round_to(t0bare, q), _round_to(stpbare, q)
     end
 
-    grid_bare = range(start=t0_r, step=stp_r, length=n)
+    grid_bare = range(start = t0_r, step = stp_r, length = n)
     grid = u == NoUnits ? grid_bare : grid_bare .* u
     maxdev_u = u == NoUnits ? maxdev : maxdev * u
     return grid, collect(ts), maxdev_u, worst
@@ -422,13 +432,13 @@ end
 # irregularity, loose enough to absorb the float jitter that motivates calling
 # this in the first place. Caller should pass the LSQ-fitted step (with units)
 # so we don't re-fit.
-_default_atol(step_with_units) = 1e-6 * abs(step_with_units)
+_default_atol(step_with_units) = 1.0e-6 * abs(step_with_units)
 
-function _check_regularity(maxdev, worst, ts, dim, atol, fitted_step; strict=true)
+function _check_regularity(maxdev, worst, ts, dim, atol, fitted_step; strict = true)
     tol = atol === nothing ? _default_atol(fitted_step) : atol
     if maxdev > tol
         msg = "regularize: lookup along $dim is not regular within atol=$tol " *
-              "(max deviation $maxdev at index $worst, value $(ts[worst]))"
+            "(max deviation $maxdev at index $worst, value $(ts[worst]))"
         strict ? throw(ArgumentError(msg)) : @warn msg
         return false
     end
@@ -456,8 +466,10 @@ callers should use [`regularize`](@ref) on an `AbstractDimArray` instead.
 - `strict=true`: throw if regularity fails. Set `false` to warn and return the
   best-fit grid anyway.
 """
-function regularize(d::DimensionalData.Dimension; atol=nothing, sigdigits=nothing,
-    strict=true, dim_label=nameof(typeof(d)))
+function regularize(
+        d::DimensionalData.Dimension; atol = nothing, sigdigits = nothing,
+        strict = true, dim_label = nameof(typeof(d))
+    )
     ts = collect(d)
     grid, orig, maxdev, worst = _fit_regular_grid(ts; atol, sigdigits)
     _check_regularity(maxdev, worst, ts, dim_label, atol, step(grid); strict)
@@ -478,20 +490,30 @@ lookup is stored in `metadata(X)` under the dimension name.
 
 This replaces the older `rectify` and `rectifytime` methods.
 """
-function regularize(X::AbstractDimArray; dims=𝑡, atol=nothing, sigdigits=nothing,
-    zero=false, strict=true)
+function regularize(
+        X::AbstractDimArray; dims = 𝑡, atol = nothing, sigdigits = nothing,
+        zero = false, strict = true
+    )
     dimlist = (dims isa Tuple || dims isa AbstractVector) ? collect(dims) : [dims]
     for dim in dimlist
         d = DimensionalData.dims(X, dim)
-        grid, orig = regularize(d; atol, sigdigits, strict,
-            dim_label=DimensionalData.name(d))
-        new_grid = zero ? range(start=Base.zero(first(grid)), step=step(grid),
-            length=length(grid)) : grid
+        grid, orig = regularize(
+            d; atol, sigdigits, strict,
+            dim_label = DimensionalData.name(d)
+        )
+        new_grid = zero ? range(
+                start = Base.zero(first(grid)), step = step(grid),
+                length = length(grid)
+            ) : grid
         X = set(X, dim => parent(new_grid))
         if zero
-            X = rebuild(X;
-                metadata=(Symbol(DimensionalData.name(d)) => orig,
-                    pairs(metadata(X))...))
+            X = rebuild(
+                X;
+                metadata = Dict(
+                    Symbol(DimensionalData.name(d)) => orig,
+                    pairs(metadata(X))...,
+                )
+            )
         end
     end
     return X
@@ -513,8 +535,10 @@ under `strict=false`) naming the offending array and index.
 
 This replaces the older `matchdim` and the vararg form of `rectify`.
 """
-function regularize(Xs::AbstractVector{<:AbstractDimArray}; dims=𝑡, atol=nothing,
-    sigdigits=nothing, zero=false, strict=true)
+function regularize(
+        Xs::AbstractVector{<:AbstractDimArray}; dims = 𝑡, atol = nothing,
+        sigdigits = nothing, zero = false, strict = true
+    )
     isempty(Xs) && return Xs
     dimlist = (dims isa Tuple || dims isa AbstractVector) ? collect(dims) : [dims]
 
@@ -525,13 +549,26 @@ function regularize(Xs::AbstractVector{<:AbstractDimArray}; dims=𝑡, atol=noth
         maxt = minimum(maximum(d) for d in all_dims)
         mint > maxt &&
             throw(ArgumentError("regularize: no overlapping range along $dim"))
-        Xs = [x[DimensionalData.dims(x, dim)(mint .. maxt)] for x in Xs]
+        # Pad the crop interval by half a sampling step so that boundary points
+        # sitting within float jitter of the overlap edge are kept in *every*
+        # array, not dropped from some — otherwise the index-based trim below
+        # would misalign the arrays. A genuinely different range (≥ one step
+        # apart) is still cropped correctly.
+        pad = minimum(
+            median(abs.(diff(collect(parent(lookup(x, dim)))))) for x in Xs
+        ) / 2
+        Xs = [
+            x[rebuild(DimensionalData.dims(x, dim), (mint - pad) .. (maxt + pad))]
+                for x in Xs
+        ]
         L = minimum(size(x, dim) for x in Xs)
         Xs = [selectdim(x, dimnum(x, dim), 1:L) for x in Xs]
 
         # Common grid from the element-wise mean of the (cropped, trimmed)
-        # lookups.
-        lookups = [collect(DimensionalData.dims(x, dim)) for x in Xs]
+        # lookups. Pull the bare lookup *values* (not `collect(::Dimension)`,
+        # which here yields a ToolsArray and would make `mean` try to add
+        # arrays with mismatched lookups).
+        lookups = [collect(parent(lookup(x, dim))) for x in Xs]
         mean_lookup = mean(lookups)
         grid, _ = _fit_regular_grid(mean_lookup; atol, sigdigits)
 
@@ -544,22 +581,26 @@ function regularize(Xs::AbstractVector{<:AbstractDimArray}; dims=𝑡, atol=noth
             maxdev, worst = findmax(devs)
             if maxdev > tol
                 msg = "regularize: array $i lookup along $dim_label deviates " *
-                      "from common grid by $maxdev > atol=$tol " *
-                      "(worst at index $worst, value $(xl[worst]))"
+                    "from common grid by $maxdev > atol=$tol " *
+                    "(worst at index $worst, value $(xl[worst]))"
                 strict ? throw(ArgumentError(msg)) : @warn msg
             end
         end
 
         # Apply the (possibly zero-shifted) grid and stash the *genuine*
         # original lookup (captured before `set`).
-        new_grid = zero ? range(start=Base.zero(first(grid)), step=step(grid),
-            length=length(grid)) : grid
+        new_grid = zero ? range(
+                start = Base.zero(first(grid)), step = step(grid),
+                length = length(grid)
+            ) : grid
         Xs = map(zip(Xs, lookups)) do (x, origlk)
             x = set(x, dim => parent(new_grid))
             zero ?
-            rebuild(x;
-                metadata=(Symbol(dim_label) => origlk, pairs(metadata(x))...)) :
-            x
+                rebuild(
+                    x;
+                    metadata = Dict(Symbol(dim_label) => origlk, pairs(metadata(x))...)
+                ) :
+                x
         end
     end
     return Xs
@@ -568,108 +609,197 @@ end
 regularize(X1::AbstractDimArray, Xrest::AbstractDimArray...; kwargs...) =
     regularize(AbstractDimArray[X1, Xrest...]; kwargs...)
 
-# ----------------------------------------------------------------------------
-# Deprecated forwarders. Kept thin: translate the legacy `tol` (significant
-# digits) to the new `atol`/`sigdigits` knobs and call `regularize`. The
-# `strict=false` defaults preserve the legacy "warn and pass through" feel.
-# ----------------------------------------------------------------------------
-
-_tol_to_atol(tol) = exp10(-tol)
-
-"""
-    rectify(d::Dimension; tol=4, zero=false, extend=false, atol=nothing)
-
-!!! warning "Deprecated"
-    Use [`regularize`](@ref) instead. The legacy `tol` (significant figures)
-    knob has been replaced by `atol` (absolute tolerance) plus `sigdigits`.
-"""
 function rectify(ts::DimensionalData.Dimension; tol=4, zero=false, extend=false,
     atol=nothing)
-    Base.depwarn("`rectify(::Dimension)` is deprecated; use `regularize` instead.",
-        :rectify)
-    extend &&
-        @warn "`extend=true` is no longer supported and has been ignored. " *
-              "Use `regularize` with explicit `length`/`range` if you need a " *
-              "longer grid."
-    atol_effective = atol === nothing ? _tol_to_atol(tol) * unit(eltype(ts)) : atol
     u = unit(eltype(ts))
-    atol_effective = u == NoUnits ? ustripall(atol_effective) : atol_effective
-    grid, orig = regularize(ts; atol=atol_effective, strict=false)
-    grid = zero ? grid .- first(grid) : grid
-    return parent(grid), orig
+    ts = collect(ts)
+    origts = ts
+    stp = ts |> diff |> mean
+    err = ts |> diff |> std
+    tol = Int(tol - round(log10(stp |> ustripall)))
+
+    if isnothing(atol) && ustripall(err) > exp10(-tol - 1)
+        @warn "Step $stp is not approximately constant (err=$err, tol=$(exp10(-tol-1))), skipping rectification"
+    else
+        if !isnothing(atol)
+            tol = atol
+        end
+        stp = u == NoUnits ? round(stp; digits=tol) : round(u, stp; digits=tol)
+        t0, t1 = u == NoUnits ? round.(extrema(ts); digits=tol) :
+                 round.(u, extrema(ts); digits=tol)
+        if zero
+            origts = t0:stp:(t1+(10000*stp))
+            t1 = t1 - t0
+            t0 = 0
+        end
+        if extend
+            ts = t0:stp:(t1+(10000*stp))
+        else
+            ts = range(start=t0, step=stp, length=length(ts))
+        end
+    end
+    return parent(ts), origts
 end
 
-"""
-    rectify(X::AbstractDimArray; dims, tol=4, zero=false)
-    rectify(X1, X2, ...; dims=𝑡, tol=4, zero=false)
-
-!!! warning "Deprecated"
-    Use [`regularize`](@ref) instead.
-"""
-function rectify(X::AbstractDimArray; dims, tol=4, zero=false, kwargs...)
-    Base.depwarn("`rectify` is deprecated; use `regularize` instead.", :rectify)
-    atol = get(kwargs, :atol, _tol_to_atol(tol))
-    regularize(X; dims, atol, zero, strict=false)
+function rectify(X::AbstractDimArray; dims, tol=4, zero=false, kwargs...) # tol gives significant figures for rounding
+    if !(dims isa Tuple || dims isa AbstractVector)
+        dims = [dims]
+    end
+    for dim in dims
+        ts, origts = rectify(DimensionalData.dims(X, dim); tol, zero, extend=true,
+            kwargs...)
+        ts = ts[1:size(X, dim)] # Should be ok?
+        @assert length(ts) == size(X, dim)
+        X = set(X, dim => ts)
+        @assert lookup(X, dim) == ts
+        if zero
+            X = rebuild(X; metadata=(Symbol(dim) => origts, pairs(metadata(X))...))
+        end
+    end
+    return X
 end
 
-function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false, kwargs...)
-    Base.depwarn("`rectify(X1, X2, ...)` is deprecated; use `regularize` instead.",
-        :rectify)
-    atol = get(kwargs, :atol, _tol_to_atol(tol))
-    regularize(collect(X); dims, atol, zero, strict=false)
+function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false,
+    kwargs...)
+
+    # Ensure dims is iterable
+    if !(dims isa Tuple || dims isa AbstractVector)
+        dims = [dims]
+    end
+
+    # Process each dimension
+    for dim in dims
+        # Extract dimension values from all arrays
+        all_dims = [DimensionalData.dims(x, dim) for x in X]
+
+        # Find common range across all arrays
+        mint = maximum([minimum(d) for d in all_dims])
+        maxt = minimum([maximum(d) for d in all_dims])
+
+        # Check if there's overlap
+        if mint > maxt
+            @error "No overlapping range found for dimension $dim"
+            return X
+        end
+
+        # Subset all arrays to common range (with small tolerance for floating point)
+        u = unit(eltype(all_dims[1]))
+        tol_val = u == NoUnits ? exp10(-tol) : exp10(-tol) * u
+        common_range = (mint - tol_val) .. (maxt + tol_val)
+        X = [x[dim(common_range)] for x in X]
+
+        # Find minimum common length
+        min_length = minimum([size(x, dim) for x in X])
+        X = [selectdim(x, dimnum(x, dim), 1:min_length) for x in X]
+
+        # Compute mean dimension values for rectification
+        mean_dim_vals = mean([collect(DimensionalData.dims(x, dim)) for x in X])
+
+        # Rectify using the mean dimension values
+        ts, origts = rectify(rebuild(DimensionalData.dims(X[1], dim), mean_dim_vals);
+            tol=tol, zero=zero, extend=true, kwargs...)
+
+        # Trim to actual size
+        ts = ts[1:min_length]
+
+        # Verify rectification is within tolerance
+        for (i, x) in enumerate(X)
+            x_dims = collect(DimensionalData.dims(x, dim))
+            max_diff = maximum(abs.(ts .- x_dims))
+            # Base tolerance on rectification precision, not step variability
+            u = unit(eltype(x_dims))
+            expected_tol = u == NoUnits ? exp10(-tol) : exp10(-tol) * u
+
+            if max_diff > expected_tol
+                @warn "Array $i: dimension $dim differs from rectified values by up to $max_diff (tolerance: $expected_tol)"
+            end
+        end
+
+        # Apply rectified dimension to all arrays
+        X = [set(x, dim => ts) for x in X]
+
+        # Add original dimension values to metadata if zero=true
+        if zero
+            X = [rebuild(x;
+                metadata=(Symbol(dim) => origts[1:min_length],
+                    pairs(metadata(x))...)) for x in X]
+        end
+    end
+
+    return X
 end
 
-"""
-    rectifytime(X::AbstractTimeseries; tol=6, zero=false)
-
-!!! warning "Deprecated"
-    Use [`regularize`](@ref) (which defaults `dims=𝑡`) instead.
-"""
-rectifytime(ts::𝑡; kwargs...) = (Base.depwarn(
-        "`rectifytime` is deprecated; use `regularize` instead.", :rectifytime);
-    rectify(ts; kwargs...))
-
-rectifytime(X::Vararg{AbstractTimeseries}; kwargs...) = (Base.depwarn(
-        "`rectifytime` is deprecated; use `regularize` instead.", :rectifytime);
-    rectify(X...; dims=𝑡, kwargs...))
+rectifytime(ts::𝑡; kwargs...) = rectify(ts; kwargs...)
 
 """
-    matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false)
+    rectifytime(X::AbstractTimeseries; tol = 6, zero = false)
 
-!!! warning "Deprecated"
-    Use [`regularize`](@ref) on a vector of arrays instead.
+Rectifies the time values of an [`IrregularTimeseries`](@ref). Checks if the time step of
+the input time series is approximately constant. If it is, the function rounds the time step
+and constructs a [`RegularTimeseries`](@ref) with range time indices. If the time step is
+not approximately constant, a warning is issued and the rectification is skipped.
+
+# Arguments
+- `X::IrregularTimeseries`: The input time series.
+- `tol::Int`: The number of significant figures for rounding the time step. Default is 6.
+- `zero::Bool`: If `true`, the rectified time values will start from zero. Default is
+  `false`.
 """
+rectifytime(X::Vararg{AbstractTimeseries}; kwargs...) = rectify(X...; dims=𝑡, kwargs...)
+
 function matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false,
     kwargs...)
-    Base.depwarn("`matchdim` is deprecated; use `regularize` instead.", :matchdim)
-    atol = get(kwargs, :atol, _tol_to_atol(tol))
-    regularize(X; dims, atol, zero, strict=false)
+    # Generate some common time indices as close as possible to the rectified times of each element of the input vector. At most this will change each time index by a maximum of 1 sampling period. We could do better--maximum of a half-- but leave that for now.
+    u = lookup(X |> first, dims) |> eltype |> unit
+    ts = lookup.(X, [dims])
+    mint = (maximum(minimum.(ts)) - exp10(-tol) * u) ..
+           (minimum(maximum.(ts)) + exp10(-tol) * u)
+    X = map(X) do x
+        d = rebuild(DimensionalData.dims(x, dims), mint)
+        x = getindex(x, d)
+    end
+    L = minimum(size.(X, dims))
+    X = map(X) do x
+        d = rebuild(DimensionalData.dims(x, dims), 1:L)
+        x = getindex(x, d) # Should now have same length for all inputs
+    end
+
+    ts = mean(lookup.(X, [dims]))
+    ts, origts = rectify(rebuild(DimensionalData.dims(X[1], dims), ts); tol, zero,
+        kwargs...)
+    if any([any(ts .- lookup(x, dims) .> std(ts) / exp10(-tol)) for x in X])
+        @error "Cannot find common dimension indices within tolerance"
+    end
+    X = [set(x, rebuild(DimensionalData.dims(x, dims), ts)) for x in X]
+    return X
 end
 
 phasegrad(x::Real, y::Real) = mod(x - y + π, 2π) - π # +pi - pi because we want the difference mapped from -pi to +pi, so we can represent negative changes.
 phasegrad(x, y) = phasegrad.(x, y)
 phasegrad(x::Complex, y::Complex) = phasegrad(angle(x), angle(y))
 
-function _centraldiff!(x; grad=-, dims=nothing) # Dims unused
+function _centraldiff!(x; grad = -, dims = nothing) # Dims unused
     # a = x[2] # Save here, otherwise they get mutated before we use them
     # b = x[end - 1]
     if grad == -
-        x[2:(end-1)] .= grad(x[3:end], x[1:(end-2)]) / 2
+        x[2:(end - 1)] .= grad(x[3:end], x[1:(end - 2)]) / 2
     else # For a non-euclidean metric, we need to calculate both sides individually
-        x[2:(end-1)] .= (grad(x[3:end], x[2:(end-1)]) +
-                         grad(x[2:(end-1)], x[1:(end-2)])) / 2
+        x[2:(end - 1)] .= (
+            grad(x[3:end], x[2:(end - 1)]) +
+                grad(x[2:(end - 1)], x[1:(end - 2)])
+        ) / 2
     end
     # x[[1, end]] .= [grad(a, x[1]), grad(x[end], b)]
-    x[[1, end]] .= [copy(x[2]), copy(x[end-1])]
+    x[[1, end]] .= [copy(x[2]), copy(x[end - 1])]
     return nothing
 end
 
 _diff!(x::UnivariateRegular, f!; kwargs...) = f!(parent(x); kwargs...)
-function _diff!(x::AbstractDimArray, f!; dims=1, kwargs...)
+function _diff!(x::AbstractDimArray, f!; dims = 1, kwargs...)
     if !(DimensionalData.lookup(x, dims).data isa AbstractRange)
         error("Differencing dimension must be regularly sampled")
     end
-    f!(parent(eachslice(x; dims)); kwargs...)
+    return f!(parent(eachslice(x; dims)); kwargs...)
 end
 
 """
@@ -697,16 +827,16 @@ See [`centraldiff!`](@ref).
 centraldiff(args...; kwargs...) = _diff(args..., centraldiff!; kwargs...)
 
 function checkderivdims(dims)
-    if dims isa Tuple || dims isa AbstractVector
+    return if dims isa Tuple || dims isa AbstractVector
         error("Only one dimension can be specified for derivatives.")
     end
 end
 
-function _deriv!(x::RegularTimeseries, f!; dims=𝑡, kwargs...)
+function _deriv!(x::RegularTimeseries, f!; dims = 𝑡, kwargs...)
     checkderivdims(dims)
     f!(x; dims, kwargs...)
     x ./= step(x; dims)
-    nothing
+    return nothing
 end
 
 """
@@ -717,7 +847,7 @@ See [`centraldiff!`](@ref) for available keyword arguments.
 """
 centralderiv!(args...; kwargs...) = _deriv!(args..., centraldiff!; kwargs...)
 
-function _deriv(x::RegularTimeseries, f!; dims=𝑡, kwargs...)
+function _deriv(x::RegularTimeseries, f!; dims = 𝑡, kwargs...)
     y = deepcopy(x)
     if unit(step(x; dims)) == NoUnits # Can safely mutate
         f!(y; dims, kwargs...)
@@ -738,10 +868,10 @@ Also c.f. [`centralderiv!`](@ref).
 """
 centralderiv(args...; kwargs...) = _deriv(args..., centralderiv!; kwargs...)
 
-function _rightdiff!(x; grad=-, dims=nothing) # Dims unused
-    x[1:(end-1)] .= grad(x[2:end], x[1:(end-1)])
+function _rightdiff!(x; grad = -, dims = nothing) # Dims unused
+    x[1:(end - 1)] .= grad(x[2:end], x[1:(end - 1)])
     # x[[1, end]] .= [grad(a, x[1]), grad(x[end], b)]
-    x[[end]] .= [copy(x[end-1])]
+    x[[end]] .= [copy(x[end - 1])]
     return nothing
 end
 rightdiff!(args...; kwargs...) = _diff!(args..., _rightdiff!; kwargs...)
@@ -749,8 +879,8 @@ rightdiff(args...; kwargs...) = _diff(args..., rightdiff!; kwargs...)
 rightderiv!(args...; kwargs...) = _deriv!(args..., rightdiff!; kwargs...)
 rightderiv(args...; kwargs...) = _deriv(args..., rightderiv!; kwargs...)
 
-function _leftdiff!(x; grad=-, dims=nothing) # Dims unused
-    x[2:end] .= grad(x[2:end], x[1:(end-1)])
+function _leftdiff!(x; grad = -, dims = nothing) # Dims unused
+    x[2:end] .= grad(x[2:end], x[1:(end - 1)])
     # x[[1, end]] .= [grad(a, x[1]), grad(x[end], b)]
     x[[1]] .= [copy(x[2])]
     return nothing
@@ -772,10 +902,12 @@ circularstd(θ; kwargs...) = sqrt.(-2 * log.(resultantlength(θ; kwargs...)))
 
 ## Add refdims to a DimArray
 function addrefdim(X::AbstractDimArray, dim::DimensionalData.Dimension)
-    rebuild(X; dims=dims(X),
-        metadata=DimensionalData.metadata(X),
-        name=DimensionalData.name(X),
-        refdims=(DimensionalData.refdims(X)..., dim))
+    return rebuild(
+        X; dims = dims(X),
+        metadata = DimensionalData.metadata(X),
+        name = DimensionalData.name(X),
+        refdims = (DimensionalData.refdims(X)..., dim)
+    )
 end
 
 function addmetadata(X::AbstractDimArray; kwargs...)
@@ -785,10 +917,12 @@ function addmetadata(X::AbstractDimArray; kwargs...)
         @warn "Metadata already contains one of the keys, overwriting $(collect(pairs(kwargs))[keys(kwargs) .∈ [keys(p)]])"
     end
     md = DimensionalData.Metadata(p..., kwargs...)
-    rebuild(X; dims=dims(X),
-        metadata=md,
-        name=DimensionalData.name(X),
-        refdims=DimensionalData.refdims(X))
+    return rebuild(
+        X; dims = dims(X),
+        metadata = md,
+        name = DimensionalData.name(X),
+        refdims = DimensionalData.refdims(X)
+    )
 end
 
 """
@@ -799,29 +933,37 @@ Align a `DimArray` `x` to each of a set of dimension values `ts`, selecting a wi
 The `dims` argument specifies the dimension along which the alignment is performed.
 Each element of the resulting `DimArray` is an aligned portion of the original `x`.
 """
-function align(x::DimensionalData.AbstractDimArray, ts,
-    dt::Union{<:Tuple,<:AbstractVector}; dims=1, zero=true)
+function align(
+        x::DimensionalData.AbstractDimArray, ts,
+        dt::Union{<:Tuple, <:AbstractVector}; dims = 1, zero = true
+    )
     @assert length(dims) == 1
     dims isa Integer &&
         (dims = DimensionalData.dims(x, dims))
     ints = [Interval((t .+ dt)...) for t in ts]
     x = Timeseries([view(x, rebuild(dims, i)) for i in ints], ts)
     if zero
-        x = set(x, map(enumerate(x)) do (i, _x)
-            set(_x, dims => lookup(_x, dims) .- ts[i])
-        end)
+        x = set(
+            x, map(enumerate(x)) do (i, _x)
+                set(_x, dims => lookup(_x, dims) .- ts[i])
+            end
+        )
     end
     return x
 end
 align(x, ts, dt::Interval; kwargs...) = align(x, ts, extrema(dt); kwargs...)
 
 function upsample(d::DimensionalData.Dimension{<:RegularIndex}, factor::Number)
-    rebuild(d, range(start=minimum(d), stop=maximum(d), step=step(d) / factor))
+    return rebuild(d, range(start = minimum(d), stop = maximum(d), step = step(d) / factor))
 end
 function upsample(d::DimensionalData.Dimension, factor)
-    rebuild(d,
-        range(start=minimum(d), stop=maximum(d),
-            step=mean(diff(lookup(d))) / factor))
+    return rebuild(
+        d,
+        range(
+            start = minimum(d), stop = maximum(d),
+            step = mean(diff(lookup(d))) / factor
+        )
+    )
 end
 
 """
@@ -840,7 +982,7 @@ function stitch(x::UnivariateRegular, y::UnivariateRegular)
     dt = samplingperiod(x)
     @assert dt == samplingperiod(y)
     z = vcat(x.data, y.data)
-    z = Timeseries(z, dt:dt:(dt*size(z, 1)))
+    return z = Timeseries(z, dt:dt:(dt * size(z, 1)))
 end
 stitch(x::AbstractArray, y::AbstractArray) = vcat(x, y)
 function stitch(x::MultivariateRegular, y::MultivariateRegular)
@@ -848,7 +990,7 @@ function stitch(x::MultivariateRegular, y::MultivariateRegular)
     @assert dt == samplingperiod(y)
     @assert all(dims(x)[2:end] .== dims(y)[2:end])
     z = vcat(x.data, y.data)
-    z = Timeseries(z, dt:dt:(dt*size(z, 1)), dims(x)[2:end]...)
+    return z = Timeseries(z, dt:dt:(dt * size(z, 1)), dims(x)[2:end]...)
 end
 stitch(X, Y, args...) = reduce(stitch, (X, Y, args...))
 
@@ -861,7 +1003,7 @@ This is more flexibile than the conventional, mean-based definition of coarse gr
     mean(C, dims=ndims(C))
 ```
 """
-function coarsegrain(X::AbstractArray; dims=nothing, newdim=ndims(X) + 1)
+function coarsegrain(X::AbstractArray; dims = nothing, newdim = ndims(X) + 1)
     if isnothing(dims)
         dims = collect(1:ndims(X))
         dims = setdiff(dims, newdim)
@@ -874,16 +1016,20 @@ function coarsegrain(X::AbstractArray; dims=nothing, newdim=ndims(X) + 1)
         error("Cannot coarse-grain a dimension with only one element")
     while !isempty(dims)
         dim = pop!(dims)
-        𝒳 = eachslice(X; dims=dim)
+        𝒳 = eachslice(X; dims = dim)
         N = floor(Int, length(𝒳) / 2)
-        X = cat(stack(𝒳[1:2:(N*2)], dims=dim), stack(𝒳[2:2:(N*2)], dims=dim),
-            dims=newdim)
+        X = cat(
+            stack(𝒳[1:2:(N * 2)], dims = dim), stack(𝒳[2:2:(N * 2)], dims = dim),
+            dims = newdim
+        )
     end
     return X
 end
 
-function coarsegrain(X::AbstractDimArray; dims=nothing,
-    newdim=ndims(X) + 1)
+function coarsegrain(
+        X::AbstractDimArray; dims = nothing,
+        newdim = ndims(X) + 1
+    )
     if isnothing(dims)
         dims = DimensionalData.dims(X)
     end
@@ -897,27 +1043,41 @@ function coarsegrain(X::AbstractDimArray; dims=nothing,
     end
     while !isempty(_dims)
         _dim = pop!(_dims)
-        _X = coarsegrain(X.data; dims=_dim, newdim=_newdim)
+        _X = coarsegrain(X.data; dims = _dim, newdim = _newdim)
         N = floor(Int, size(X, _dim) / 2)
         if hasdim(X, newdim)
-            newdim = rebuild(DimensionalData.dims(X, newdim),
-                vcat(DimensionalData.dims(X, _newdim).val,
-                    DimensionalData.dims(X, _newdim).val))
+            newdim = rebuild(
+                DimensionalData.dims(X, newdim),
+                vcat(
+                    DimensionalData.dims(X, _newdim).val,
+                    DimensionalData.dims(X, _newdim).val
+                )
+            )
             newdims = collect(Any, DimensionalData.dims(X))
-            newdims[_dim] = rebuild(newdims[_dim],
-                (parent(newdims[_dim][1:2:(N*2)]) +
-                 parent(newdims[_dim][2:2:(N*2)])) / 2)
+            newdims[_dim] = rebuild(
+                newdims[_dim],
+                (
+                    parent(newdims[_dim][1:2:(N * 2)]) +
+                        parent(newdims[_dim][2:2:(N * 2)])
+                ) / 2
+            )
             newdims[_newdim] = newdim
         else
             newdims = collect(Any, DimensionalData.dims(X))
-            newdims[_dim] = rebuild(newdims[_dim],
-                (parent(newdims[_dim][1:2:(N*2)]) +
-                 parent(newdims[_dim][2:2:(N*2)])) / 2)
+            newdims[_dim] = rebuild(
+                newdims[_dim],
+                (
+                    parent(newdims[_dim][1:2:(N * 2)]) +
+                        parent(newdims[_dim][2:2:(N * 2)])
+                ) / 2
+            )
             newdims = [newdims..., DimensionalData.AnonDim(1:size(_X, _newdim))]
             newdim = newdims[newdim]
         end
-        X = ToolsArray(_X, Tuple(newdims); refdims=refdims(X), name=name(X),
-            metadata=metadata(X))
+        X = ToolsArray(
+            _X, Tuple(newdims); refdims = refdims(X), name = name(X),
+            metadata = metadata(X)
+        )
     end
 
     return X
@@ -926,8 +1086,8 @@ end
 struct Dropdims <: Function
     f::Any
 end
-function (d::Dropdims)(args...; dims=:, kwargs...)
-    Base.dropdims(d.f(args...; dims, kwargs...); dims)
+function (d::Dropdims)(args...; dims = :, kwargs...)
+    return Base.dropdims(d.f(args...; dims, kwargs...); dims)
 end
 
 end
