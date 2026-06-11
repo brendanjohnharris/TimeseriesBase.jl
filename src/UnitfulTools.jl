@@ -12,8 +12,8 @@ import Unitful.unit
 using DimensionalData
 
 export dimunit, timeunit, frequnit, unit,
-       UnitfulIndex, UnitfulTimeseries, UnitfulSpectrum,
-       ustripall
+    UnitfulIndex, UnitfulTimeseries, UnitfulSpectrum,
+    ustripall
 
 # Unitful._promote_unit(::S, ::T) where {S<:Unitful.FreeUnits{(), NoDims, nothing}, T<:Unitful.TimeUnits} = u"s"
 """
@@ -37,17 +37,23 @@ convertconst(c::Number, u::Unitful.Quantity) = (c)unit(u)
 
 A type alias for a union of `AbstractArray`, `AbstractRange`, and `Tuple` types with `Unitful.Time` elements.
 """
-UnitfulIndex = UnitfulTIndex = Union{AbstractArray{<:Unitful.Time},
-                                     AbstractRange{<:Unitful.Time}, Tuple{<:Unitful.Time}}
+UnitfulIndex = UnitfulTIndex = Union{
+    AbstractArray{<:Unitful.Time},
+    AbstractRange{<:Unitful.Time}, Tuple{<:Unitful.Time},
+}
 
 """
     UnitfulTimeIndex
 
 A type alias for a tuple of dimensions, where the first dimension is of type `DimensionalData.Dimension{<:UnitfulIndex}`.
 """
-UnitfulTimeIndex = Tuple{A,
-                         Vararg{DimensionalData.Dimension}} where {A <:
-                                                                   DimensionalData.Dimension{<:UnitfulIndex}}
+UnitfulTimeIndex = Tuple{
+    A,
+    Vararg{DimensionalData.Dimension},
+} where {
+    A <:
+    DimensionalData.Dimension{<:UnitfulIndex},
+}
 
 """
     UnitfulTimeseries{T, N, B}
@@ -65,11 +71,17 @@ julia> uts isa UnitfulTimeseries
 """
 UnitfulTimeseries = AbstractToolsArray{T, N, <:UnitfulTimeIndex, B} where {T, N, B}
 
-UnitfulFIndex = Union{AbstractArray{<:Unitful.Frequency},
-                      AbstractRange{<:Unitful.Frequency}, Tuple{<:Unitful.Frequency}}
-UnitfulFreqIndex = Tuple{A,
-                         Vararg{DimensionalData.Dimension}} where {A <:
-                                                                   DimensionalData.Dimension{<:UnitfulFIndex}}
+UnitfulFIndex = Union{
+    AbstractArray{<:Unitful.Frequency},
+    AbstractRange{<:Unitful.Frequency}, Tuple{<:Unitful.Frequency},
+}
+UnitfulFreqIndex = Tuple{
+    A,
+    Vararg{DimensionalData.Dimension},
+} where {
+    A <:
+    DimensionalData.Dimension{<:UnitfulFIndex},
+}
 
 """
     UnitfulSpectrum{T,N,B}
@@ -85,8 +97,10 @@ function unitfultimeseries(x::AbstractTimeseries, u::Unitful.Units)
     t = timeunit(x) == NoUnits ? t : ustrip(t)
     t = t * u
     ds = dims(x)
-    return ToolsArray(x.data, (𝑡(t), ds[2:end]...); metadata = DimensionalData.metadata(x),
-                      name = DimensionalData.name(x), refdims = DimensionalData.refdims(x))
+    return ToolsArray(
+        x.data, (𝑡(t), ds[2:end]...); metadata = DimensionalData.metadata(x),
+        name = DimensionalData.name(x), refdims = DimensionalData.refdims(x)
+    )
 end
 
 function unitfultimeseries(x::AbstractTimeseries)

@@ -1,9 +1,11 @@
-@testitem "IO" tags=[:fast] begin
+@testitem "IO" tags = [:fast] begin
     import TimeseriesBase: Timeseries
     using Unitful
     using JLD2
-    x = Timeseries(rand(1000, 3), 0.001:0.001:1, 1:3; metadata = Dict(:a => :test),
-                   name = "name")
+    x = Timeseries(
+        rand(1000, 3), 0.001:0.001:1, 1:3; metadata = Dict(:a => :test),
+        name = "name"
+    )
 
     f = tempname() * ".jld2"
     savetimeseries(f, x)
@@ -34,8 +36,10 @@
     @test parent(lookup(_x, 1)) isa Vector{Float64}
 
     # Currently not the greatest way of handling non-serializable metadata
-    x = Timeseries(rand(1000, 3), 0.001:0.001:1, 1:3;
-                   metadata = Dict(:a => DimensionalData.NoName())) # Something that can't be serialized
+    x = Timeseries(
+        rand(1000, 3), 0.001:0.001:1, 1:3;
+        metadata = Dict(:a => DimensionalData.NoName())
+    ) # Something that can't be serialized
     savetimeseries(f, x)
     # @test_logs (:warn, r"Cannot serialize type") savetimeseries(f, x)
     _x = loadtimeseries(f)
@@ -68,8 +72,10 @@
     @test [all(d .≈ _d) for (d, _d) in zip(dims(x), dims(_x))] |> all
     @test parent(lookup(_x, 1)) isa Vector{Float64}
 
-    x = Timeseries(rand(1000, 3), (0.001:0.001:1) * u"s", 1:3; metadata = Dict(:a => :test),
-                   name = "name") * u"V"
+    x = Timeseries(
+        rand(1000, 3), (0.001:0.001:1) * u"s", 1:3; metadata = Dict(:a => :test),
+        name = "name"
+    ) * u"V"
 
     f = tempname() * ".jld2"
     savetimeseries(f, x)
@@ -77,7 +83,7 @@
     @test x == _x
 end
 
-@testitem "IO: unsupported TSV load fails loudly" tags=[:fast] begin
+@testitem "IO: unsupported TSV load fails loudly" tags = [:fast] begin
     # A TSV whose first line is not the '#' metadata header is the (unsupported)
     # flattened DimTable layout written for ≥3D series. Loading must throw a clear
     # error rather than silently returning `nothing`.

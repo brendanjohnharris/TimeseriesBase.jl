@@ -1,16 +1,16 @@
 module TimeSeries
 
 export AbstractTimeseries,
-       UnivariateTimeseries,
-       MultivariateTimeseries,
-       RegularTimeseries,
-       UnivariateRegular, MultivariateRegular,
-       IrregularTimeseries,
-       TimeIndex, RegularIndex, RegularTimeIndex,
-       IrregularIndex, IrregularTimeIndex,
-       Timeseries, Timeseries,
-       MultidimensionalIndex, MultidimensionalTimeseries,
-       SpikeTrain, MultivariateSpikeTrain, UnivariateSpikeTrain
+    UnivariateTimeseries,
+    MultivariateTimeseries,
+    RegularTimeseries,
+    UnivariateRegular, MultivariateRegular,
+    IrregularTimeseries,
+    TimeIndex, RegularIndex, RegularTimeIndex,
+    IrregularIndex, IrregularTimeIndex,
+    Timeseries, Timeseries,
+    MultidimensionalIndex, MultidimensionalTimeseries,
+    SpikeTrain, MultivariateSpikeTrain, UnivariateSpikeTrain
 
 using ..ToolsArrays
 using DimensionalData
@@ -72,20 +72,27 @@ const RegularTimeIndex = Tuple{A, Vararg{Dimension}} where {A <: TimeDim{<:Regul
 
 A type alias for a regularly sampled time series.
 """
-const RegularTimeseries = AbstractToolsArray{T, N, <:RegularTimeIndex,
-                                             B} where {T, N, B}
+const RegularTimeseries = AbstractToolsArray{
+    T, N, <:RegularTimeIndex,
+    B,
+} where {T, N, B}
 
-const MultidimensionalIndex = Tuple{A,
-                                    Vararg{Dimension{B}}} where {
-                                                                 A <:
-                                                                 TimeDim{<:RegularIndex},
-                                                                 B <: RegularIndex}
+const MultidimensionalIndex = Tuple{
+    A,
+    Vararg{Dimension{B}},
+} where {
+    A <:
+    TimeDim{<:RegularIndex},
+    B <: RegularIndex,
+}
 
 """
 A multidimensional time series has a regular sampling over a dimension other than time; a one-dimensional time series can be thought of as a field over an even grid in 1 dimension that fluctuates over time.
 """
-const MultidimensionalTimeseries = AbstractToolsArray{T, N, <:MultidimensionalIndex,
-                                                      B} where {T, N, B}
+const MultidimensionalTimeseries = AbstractToolsArray{
+    T, N, <:MultidimensionalIndex,
+    B,
+} where {T, N, B}
 
 """
     IrregularIndex
@@ -99,16 +106,20 @@ const IrregularIndex = Dimensions.Sampled{T, R} where {T, R <: AbstractVector}
 
 A type alias for a tuple of dimensions containing a [`TimeIndex`](@ref) and any number of other dimensions.
 """
-const IrregularTimeIndex = Tuple{A,
-                                 Vararg{Dimension}} where {A <: TimeDim{<:IrregularIndex}}
+const IrregularTimeIndex = Tuple{
+    A,
+    Vararg{Dimension},
+} where {A <: TimeDim{<:IrregularIndex}}
 
 """
     IrregularTimeseries
 
 A type alias for a potentially irregularly sampled time series.
 """
-const IrregularTimeseries = AbstractToolsArray{T, N, <:IrregularTimeIndex,
-                                               B} where {T, N, B}
+const IrregularTimeseries = AbstractToolsArray{
+    T, N, <:IrregularTimeIndex,
+    B,
+} where {T, N, B}
 
 """
     BinaryTimeseries
@@ -143,7 +154,7 @@ julia> ts isa typeintersect(UnivariateTimeseries, RegularTimeseries)
 ```
 """
 function Timeseries(x, t, dims::Vararg{Dimension}; kwargs...)
-    ToolsArray(x, 𝑡(t), dims...; kwargs...)
+    return ToolsArray(x, 𝑡(t), dims...; kwargs...)
 end
 
 """
@@ -161,11 +172,11 @@ julia> mts isa typeintersect(MultivariateTimeseries, RegularTimeseries)
 ```
 """
 function Timeseries(x, t, v, dims::Vararg{Dimension}; kwargs...)
-    ToolsArray(x, (𝑡(t), Var(v), dims...); kwargs...)
+    return ToolsArray(x, (𝑡(t), Var(v), dims...); kwargs...)
 end
 
 function Timeseries(x, dims::Vararg{Dimension}; kwargs...)
-    ToolsArray(x, dims; kwargs...)
+    return ToolsArray(x, dims; kwargs...)
 end
 
 convertconst(a, _) = a

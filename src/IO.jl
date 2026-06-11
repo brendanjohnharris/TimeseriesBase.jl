@@ -16,7 +16,7 @@ loadtimeseries(f::String) = loadtimeseries(f |> query)
 
 ## JLD2 files are easiest
 function savetimeseries(f::File{format"JLD2"}, x::AbstractTimeseries)
-    save(f, Dict("timeseries" => x))
+    return save(f, Dict("timeseries" => x))
 end
 loadtimeseries(f::File{format"JLD2"}) = load(f, "timeseries")
 
@@ -24,7 +24,7 @@ loadtimeseries(f::File{format"JLD2"}) = load(f, "timeseries")
 # We'll assume that the first column is the time index, and the remaining columns are the data.
 function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
     isnothing(var) && (var = "")
-    open(f.filename, "w") do f
+    return open(f.filename, "w") do f
         print(f, "# ")
 
         if name(x) isa DimensionalData.NoName
@@ -33,7 +33,7 @@ function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
             try
                 print(f, json(name(x)))
             catch e
-                @warn "Cannot serialize type" exception=(e, catch_backtrace())
+                @warn "Cannot serialize type" exception = (e, catch_backtrace())
             end
         end
 
@@ -45,7 +45,7 @@ function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
             try
                 print(f, json(metadata(x)))
             catch e
-                @warn "Cannot serialize type" exception=(e, catch_backtrace())
+                @warn "Cannot serialize type" exception = (e, catch_backtrace())
             end
         end
 
@@ -55,7 +55,7 @@ function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
             print(f, refs)
         catch e
             print(f, "")
-            @warn "Cannot serialize type" exception=(e, catch_backtrace())
+            @warn "Cannot serialize type" exception = (e, catch_backtrace())
         end
 
         print(f, "\n# ")
@@ -64,7 +64,7 @@ function savetimeseries(f::File{format"TSV"}, x::AbstractTimeseries, var)
             vars = ndims(x) == 1 ? ["𝑡"] : json(["𝑡", name(var)])
         catch e
             vars = json(["𝑡", 1:length(var)]) # egh
-            @warn "Cannot serialize type" exception=(e, catch_backtrace())
+            @warn "Cannot serialize type" exception = (e, catch_backtrace())
         end
 
         print(f, vars)
@@ -79,15 +79,15 @@ function savetimeseries(f::File{format"TSV"}, x::UnivariateTimeseries)
     else
         var = refdims(x, Var)
     end
-    savetimeseries(f, x, var)
+    return savetimeseries(f, x, var)
 end
 function savetimeseries(f::File{format"TSV"}, x::MultivariateTimeseries)
-    savetimeseries(f, x, dims(x, 2))
+    return savetimeseries(f, x, dims(x, 2))
 end
 
 function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
     # For multidimensional time series, we have to flatten to a table to save in csv format
-    if ndims(x) < 3
+    return if ndims(x) < 3
         savetimeseries(f, x, dims(x, 2))
     else
         d = DimTable(x)
@@ -102,7 +102,7 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
                 try
                     print(f, json(name(x)))
                 catch e
-                    @warn "Cannot serialize name" exception=(e, catch_backtrace())
+                    @warn "Cannot serialize name" exception = (e, catch_backtrace())
                 end
             end
 
@@ -114,7 +114,7 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
                 try
                     print(f, json(metadata(x)))
                 catch e
-                    @warn "Cannot serialize metadata" exception=(e, catch_backtrace())
+                    @warn "Cannot serialize metadata" exception = (e, catch_backtrace())
                 end
             end
 
@@ -124,7 +124,7 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
                 print(f, refs)
             catch e
                 print(f, "")
-                @warn "Cannot serialize refdims" exception=(e, catch_backtrace())
+                @warn "Cannot serialize refdims" exception = (e, catch_backtrace())
             end
 
             print(f, "\n")
@@ -135,15 +135,19 @@ end
 # Reading the flattened DimTable layout (written for ≥3-dimensional series) back into a
 # time series is not implemented. Fail loudly rather than silently returning `nothing`.
 function loadmultidimensionaltimeseries(::File{format"TSV"})
-    throw(ArgumentError("loadtimeseries: reading a multidimensional (≥3D) time series " *
-                        "from TSV is not supported; save it as JLD2 instead."))
+    throw(
+        ArgumentError(
+            "loadtimeseries: reading a multidimensional (≥3D) time series " *
+                "from TSV is not supported; save it as JLD2 instead."
+        )
+    )
 end
 
 function loadtimeseries(f::File{format"TSV"})
     if first(readline(f.filename)) != '#'
         return loadmultidimensionaltimeseries(f)
     end
-    open(f.filename, "r") do f
+    return open(f.filename, "r") do f
         # Read the name
         line = readline(f)
         name = isempty(line[3:end]) ? DimensionalData.NoName() : JSON.parse(line[3:end])
@@ -151,8 +155,8 @@ function loadtimeseries(f::File{format"TSV"})
         # Read the metadata
         line = readline(f)
         metadata = isempty(line[3:end]) ?
-                   DimensionalData.Dimensions.NoMetadata() :
-                   JSON.parse(line[3:end])
+            DimensionalData.Dimensions.NoMetadata() :
+            JSON.parse(line[3:end])
 
         # Read the reference dimensions
         line = readline(f)

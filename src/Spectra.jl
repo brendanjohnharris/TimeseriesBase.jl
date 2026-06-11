@@ -9,8 +9,8 @@ import ..ToolsArrays: FrequencyDim
 using DimensionalData
 
 export freqs, Spectrum,
-       AbstractSpectrum, RegularSpectrum, UnivariateSpectrum, MultivariateSpectrum,
-       AbstractSpectrogram, MultivariateSpectrogram, RegularSpectrogram
+    AbstractSpectrum, RegularSpectrum, UnivariateSpectrum, MultivariateSpectrum,
+    AbstractSpectrogram, MultivariateSpectrogram, RegularSpectrogram
 
 """
     𝑓
@@ -46,9 +46,13 @@ freqs(x::AbstractSpectrum) = lookup(x, 𝑓) |> val
 
 A type alias for a tuple of dimensions, where the first dimension is a regularly sampled [`𝑓`](@ref)requency.
 """
-const RegularFreqIndex = Tuple{A,
-                               Vararg{DimensionalData.Dimension}} where {A <:
-                                                                         FrequencyDim{<:RegularIndex}}
+const RegularFreqIndex = Tuple{
+    A,
+    Vararg{DimensionalData.Dimension},
+} where {
+    A <:
+    FrequencyDim{<:RegularIndex},
+}
 
 """
     RegularSpectrum{T, N, B}
@@ -84,17 +88,20 @@ Constructs a multivariate spectrum with frequencies `f`, variables `v`, and data
 """
 Spectrum(f, v, x; kwargs...) = ToolsArray(x, (𝑓(f), Var(v)); kwargs...)
 function Spectrum(f, v::DimensionalData.Dimension, x; kwargs...)
-    ToolsArray(x, (𝑓(f), v); kwargs...)
+    return ToolsArray(x, (𝑓(f), v); kwargs...)
 end
 
 import DimensionalData: Dimension, TimeDim
 
 const TimeFreqIndex = Tuple{T, F, Vararg{Dimension}} where {T <: TimeDim, F <: 𝑓}
-const RegularTimeFreqIndex = Tuple{T, F,
-                                   Vararg{Dimension}} where {
-                                                             T <:
-                                                             TimeDim{<:RegularIndex},
-                                                             F <: 𝑓}
+const RegularTimeFreqIndex = Tuple{
+    T, F,
+    Vararg{Dimension},
+} where {
+    T <:
+    TimeDim{<:RegularIndex},
+    F <: 𝑓,
+}
 
 const AbstractSpectrogram = AbstractToolsArray{T, N, <:TimeFreqIndex, B} where {T, N, B}
 times(x::AbstractSpectrogram) = lookup(x, 𝑡) |> val
@@ -102,7 +109,9 @@ freqs(x::AbstractSpectrogram) = lookup(x, 𝑓) |> val
 
 const MultivariateSpectrogram = AbstractSpectrogram{T, 3} where {T}
 
-const RegularSpectrogram = AbstractToolsArray{T, N, <:RegularTimeFreqIndex,
-                                              B} where {T, N, B}
+const RegularSpectrogram = AbstractToolsArray{
+    T, N, <:RegularTimeFreqIndex,
+    B,
+} where {T, N, B}
 
 end

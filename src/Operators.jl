@@ -23,9 +23,11 @@ The backshift operator: a copy of `x` with its elements circularly shifted forwa
 positions (default `1`), so that `ℬ(x)[i] == x[i-1]`. See [`ℬ!`](@ref) for the in-place
 form, and [`ℒ`](@ref), [`𝒯`](@ref).
 """
-ℬ(x, args...) = (x = deepcopy(x);
-                 ℬ!(x, args...);
-                 x)
+ℬ(x, args...) = (
+    x = deepcopy(x);
+    ℬ!(x, args...);
+    x
+)
 
 """
     ℒ!(x, [n=1])

@@ -5,10 +5,12 @@ using TimeseriesBase
 import TimeseriesBase: Timeseries
 
 function sol2metadata(sol; kwargs...) # Maybe expand
-    Dict(:alg => sol.alg,
-         :alg_choice => sol.alg_choice,
-         :retcode => sol.retcode,
-         pairs(kwargs)...)
+    return Dict(
+        :alg => sol.alg,
+        :alg_choice => sol.alg_choice,
+        :retcode => sol.retcode,
+        pairs(kwargs)...
+    )
 end
 
 function split_duplicates(t::AbstractVector)
@@ -36,8 +38,10 @@ end
 function Timeseries(sol::AbstractTimeseriesSolution{T, 1, V}) where {T, V}
     u, t, du, dt = split_duplicate_timesteps(sol.u, sol.t)
     callback_values = Timeseries(du, dt)
-    Timeseries(u, t;
-               metadata = sol2metadata(sol; callback_values))::AbstractTimeseries{T, 1}
+    return Timeseries(
+        u, t;
+        metadata = sol2metadata(sol; callback_values)
+    )::AbstractTimeseries{T, 1}
 end
 
 function Timeseries(sol::AbstractTimeseriesSolution{T, 2, V}) where {T, V}
@@ -48,22 +52,29 @@ function Timeseries(sol::AbstractTimeseriesSolution{T, 2, V}) where {T, V}
     else
         callback_values = Timeseries([], [])
     end
-    Timeseries(permutedims(stack(u), (2, 1)), t, vars;
-               metadata = sol2metadata(sol; callback_values))::AbstractTimeseries{T, 2}
+    return Timeseries(
+        permutedims(stack(u), (2, 1)), t, vars;
+        metadata = sol2metadata(sol; callback_values)
+    )::AbstractTimeseries{T, 2}
 end
 
-function Timeseries(sol::AbstractTimeseriesSolution{T, N, <:AbstractVector{V}}) where {T, N,
-                                                                                       V
-                                                                                       }
+function Timeseries(sol::AbstractTimeseriesSolution{T, N, <:AbstractVector{V}}) where {
+        T, N,
+        V,
+    }
     u, t, du, dt = split_duplicate_timesteps(sol.u, sol.t)
     callback_values = Timeseries(du, dt)
-    Timeseries(u, t;
-               metadata = sol2metadata(sol; callback_values))::AbstractTimeseries{V, 1}
+    return Timeseries(
+        u, t;
+        metadata = sol2metadata(sol; callback_values)
+    )::AbstractTimeseries{V, 1}
 end
 
-function Timeseries(sol::AbstractEnsembleSolution{T, N, S};
-                    dims = Obs(1:length(sol.u))) where {T, N, S}
-    ToolsArray(map(Timeseries, sol.u), dims)
+function Timeseries(
+        sol::AbstractEnsembleSolution{T, N, S};
+        dims = Obs(1:length(sol.u))
+    ) where {T, N, S}
+    return ToolsArray(map(Timeseries, sol.u), dims)
 end
 
 end # module

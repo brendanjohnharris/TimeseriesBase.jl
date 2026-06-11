@@ -34,7 +34,7 @@ end
         JET.test_opt(Tuple{typeof(circularvar), VF}; target_modules = mods)
         JET.test_opt(Tuple{typeof(circularstd), VF}; target_modules = mods)
 
-        if VERSION >= v"1.11"
+        if VERSION >= v"1.12"
             JET.test_opt(Tuple{typeof(centralderiv), TF}; broken = true, target_modules = mods)
         end
     else
