@@ -77,7 +77,7 @@ julia> times(ts) == t
 times(x::AbstractTimeseries) = lookup(x, 𝑡) |> val
 
 """
-    step(x::RegularTimeseries)
+    step(x::RegularTimeseries; dims=𝑡)
 
 Returns the step size (time increment) of a regularly sampled [`RegularTimeseries`](@ref).
 
@@ -652,8 +652,10 @@ stored in metadata.
     regularity by maximum deviation, and throws (rather than warns) on failure by default.
     Prefer `regularize` for new code.
 """
-function rectify(ts::DimensionalData.Dimension; tol=4, zero=false, extend=false,
-    atol=nothing)
+function rectify(
+        ts::DimensionalData.Dimension; tol = 4, zero = false, extend = false,
+        atol = nothing
+    )
     u = unit(eltype(ts))
     ts = collect(ts)
     origts = ts
@@ -662,45 +664,49 @@ function rectify(ts::DimensionalData.Dimension; tol=4, zero=false, extend=false,
     tol = Int(tol - round(log10(stp |> ustripall)))
 
     if isnothing(atol) && ustripall(err) > exp10(-tol - 1)
-        @warn "Step $stp is not approximately constant (err=$err, tol=$(exp10(-tol-1))), skipping rectification"
+        @warn "Step $stp is not approximately constant (err=$err, tol=$(exp10(-tol - 1))), skipping rectification"
     else
         if !isnothing(atol)
             tol = atol
         end
-        stp = u == NoUnits ? round(stp; digits=tol) : round(u, stp; digits=tol)
-        t0, t1 = u == NoUnits ? round.(extrema(ts); digits=tol) :
-                 round.(u, extrema(ts); digits=tol)
+        stp = u == NoUnits ? round(stp; digits = tol) : round(u, stp; digits = tol)
+        t0, t1 = u == NoUnits ? round.(extrema(ts); digits = tol) :
+            round.(u, extrema(ts); digits = tol)
         if zero
-            origts = t0:stp:(t1+(10000*stp))
+            origts = t0:stp:(t1 + (10000 * stp))
             t1 = t1 - t0
             t0 = 0
         end
         if extend
-            ts = t0:stp:(t1+(10000*stp))
+            ts = t0:stp:(t1 + (10000 * stp))
         else
-            ts = range(start=t0, step=stp, length=length(ts))
+            ts = range(start = t0, step = stp, length = length(ts))
         end
     end
     return parent(ts), origts
 end
 
-function rectify(X::AbstractDimArray; dims, tol=4, zero=false, kwargs...) # tol gives significant figures for rounding
+function rectify(X::AbstractDimArray; dims, tol = 4, zero = false, kwargs...) # tol gives significant figures for rounding
     for dim in _dimlist(dims)
-        ts, origts = rectify(DimensionalData.dims(X, dim); tol, zero, extend=true,
-            kwargs...)
+        ts, origts = rectify(
+            DimensionalData.dims(X, dim); tol, zero, extend = true,
+            kwargs...
+        )
         ts = ts[1:size(X, dim)] # Should be ok?
         @assert length(ts) == size(X, dim)
         X = set(X, dim => ts)
         @assert lookup(X, dim) == ts
         if zero
-            X = rebuild(X; metadata=(Symbol(dim) => origts, pairs(metadata(X))...))
+            X = rebuild(X; metadata = (Symbol(dim) => origts, pairs(metadata(X))...))
         end
     end
     return X
 end
 
-function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false,
-    kwargs...)
+function rectify(
+        X::Vararg{AbstractDimArray}; dims = 𝑡, tol = 4, zero = false,
+        kwargs...
+    )
 
     # Process each dimension
     for dim in _dimlist(dims)
@@ -731,8 +737,10 @@ function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false,
         mean_dim_vals = mean([collect(DimensionalData.dims(x, dim)) for x in X])
 
         # Rectify using the mean dimension values
-        ts, origts = rectify(rebuild(DimensionalData.dims(X[1], dim), mean_dim_vals);
-            tol=tol, zero=zero, extend=true, kwargs...)
+        ts, origts = rectify(
+            rebuild(DimensionalData.dims(X[1], dim), mean_dim_vals);
+            tol = tol, zero = zero, extend = true, kwargs...
+        )
 
         # Trim to actual size
         ts = ts[1:min_length]
@@ -755,9 +763,15 @@ function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false,
 
         # Add original dimension values to metadata if zero=true
         if zero
-            X = [rebuild(x;
-                metadata=(Symbol(dim) => origts[1:min_length],
-                    pairs(metadata(x))...)) for x in X]
+            X = [
+                rebuild(
+                        x;
+                        metadata = (
+                            Symbol(dim) => origts[1:min_length],
+                            pairs(metadata(x))...,
+                        )
+                    ) for x in X
+            ]
         end
     end
 
@@ -780,7 +794,7 @@ not approximately constant, a warning is issued and the rectification is skipped
 - `zero::Bool`: If `true`, the rectified time values will start from zero. Default is
   `false`.
 """
-rectifytime(X::Vararg{AbstractTimeseries}; kwargs...) = rectify(X...; dims=𝑡, kwargs...)
+rectifytime(X::Vararg{AbstractTimeseries}; kwargs...) = rectify(X...; dims = 𝑡, kwargs...)
 
 """
     matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false)
@@ -792,13 +806,15 @@ every element of `X` shares an identical lookup.
     Superseded by [`regularize`](@ref), which fits the grid by least squares and applies a
     stricter regularity check; prefer `regularize` for new code.
 """
-function matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false,
-    kwargs...)
+function matchdim(
+        X::AbstractVector{<:AbstractDimArray}; dims = 1, tol = 4, zero = false,
+        kwargs...
+    )
     # Generate some common time indices as close as possible to the rectified times of each element of the input vector. At most this will change each time index by a maximum of 1 sampling period. We could do better--maximum of a half-- but leave that for now.
     u = lookup(X |> first, dims) |> eltype |> unit
     ts = lookup.(X, [dims])
     mint = (maximum(minimum.(ts)) - exp10(-tol) * u) ..
-           (minimum(maximum.(ts)) + exp10(-tol) * u)
+        (minimum(maximum.(ts)) + exp10(-tol) * u)
     X = map(X) do x
         d = rebuild(DimensionalData.dims(x, dims), mint)
         x = getindex(x, d)
@@ -810,8 +826,10 @@ function matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=fal
     end
 
     ts = mean(lookup.(X, [dims]))
-    ts, origts = rectify(rebuild(DimensionalData.dims(X[1], dims), ts); tol, zero,
-        kwargs...)
+    ts, origts = rectify(
+        rebuild(DimensionalData.dims(X[1], dims), ts); tol, zero,
+        kwargs...
+    )
     if any([any(ts .- lookup(x, dims) .> std(ts) / exp10(-tol)) for x in X])
         @error "Cannot find common dimension indices within tolerance"
     end

@@ -11,23 +11,28 @@ end
 @testitem "JET" begin
     if isempty(VERSION.prerelease)
         using JET
-        # Target TimeseriesBase and all of its submodules, so static-analysis reports from
-        # e.g. Utils, IO, or UnitfulTools are included (targeting only the top module need
-        # not descend into submodules).
-        function submodules(m::Module, acc = Module[])
-            push!(acc, m)
-            for n in names(m; all = true)
-                isdefined(m, n) || continue
-                s = getfield(m, n)
-                s isa Module && s !== m && parentmodule(s) === m && submodules(s, acc)
-            end
-            return acc
-        end
-        rep = JET.report_package(
-            TimeseriesBase;
-            target_modules = Tuple(unique(submodules(TimeseriesBase)))
-        )
-        @test isempty(JET.get_reports(rep))
+        mods = (TimeseriesBase,)
+        JET.test_package(TimeseriesBase; target_modules = mods)
+
+        rts = Timeseries(randn(1000), 0.01:0.01:10.0)
+        θ = rand(100)
+        TF = typeof(rts)
+        VF = typeof(θ)
+        JET.test_opt(Tuple{typeof(times), TF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(step), TF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(samplingrate), TF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(samplingperiod), TF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(nyquist), TF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(duration), TF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(centraldiff), TF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(phasegrad), Float64, Float64}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(resultant), VF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(resultantlength), VF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(circularmean), VF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(circularvar), VF}; target_modules = mods)
+        JET.test_opt(Tuple{typeof(circularstd), VF}; target_modules = mods)
+
+        JET.test_opt(Tuple{typeof(centralderiv), TF}; broken = true, target_modules = mods)
     else
         @warn "JET will fail on unreleased Julia versions; skipping JET tests" version = VERSION
     end
