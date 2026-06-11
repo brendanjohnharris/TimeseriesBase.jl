@@ -3,6 +3,13 @@
     y = Timeseries(randn(10), 0.05:0.1:1)
     z = @test_nowarn interlace(x, y)
     @test all(collect(times(z)) .== 0.0:0.05:1.0)
+
+    # interlace is univariate-only; multivariate input is rejected rather than
+    # silently producing a wrongly-indexed univariate result.
+    @test_throws MethodError interlace(
+        Timeseries(randn(11, 3), 0:0.1:1, Var(1:3)),
+        Timeseries(randn(10, 3), 0.05:0.1:1, Var(1:3))
+    )
 end
 
 @testitem "Cat and stack" tags=[:fast] begin
@@ -47,6 +54,12 @@ end
     @test length(y) == length(x)
     @test samplingperiod(y) == 2 * samplingperiod(x)
     y = @test_nowarn delayembed(x, 2, 2, 1)
+
+    # Window longer than the series: no complete buffers. Returns empty rather
+    # than throwing a BoundsError (discard=true is the default).
+    xs = Timeseries(randn(5), 0.1:0.1:0.5)
+    @test length(@test_nowarn buffer(xs, 10)) == 0
+    @test length(buffer(xs, 10, 0; discard = false)) == 1
 end
 
 @testitem "Rectification" tags=[:fast] begin
@@ -352,4 +365,135 @@ end
     large = collect(0.0:1e6:1e8) .+ 1.0 .* randn(101)
     g_large, _ = regularize(𝑡(large); atol = 10.0)
     @test step(g_large) == 1e6
+end
+
+@testitem "Spike trains" tags = [:fast] begin
+    spike_times = [1.5, 3.2, 0.8, 5.1]
+    st = @test_nowarn spiketrain(spike_times)
+    @test st isa SpikeTrain
+    @test st isa UnivariateSpikeTrain
+    @test all(parent(st))                       # every stored sample is a spike
+    @test times(st) == sort(spike_times)        # sorted on construction
+    @test spiketimes(st) == sort(spike_times)   # round-trips
+
+    # spiketimes on a plain array is the identity.
+    @test spiketimes([1.0, 2.0, 3.0]) == [1.0, 2.0, 3.0]
+
+    # Multivariate: one spike-time vector per channel.
+    mt = Timeseries(Bool[1 0; 0 1; 1 1], 𝑡(1.0:3.0), Var(1:2))
+    smt = spiketimes(mt)
+    @test length(smt) == 2
+    @test smt[1] == [1.0, 3.0]
+    @test smt[2] == [2.0, 3.0]
+end
+
+@testitem "align" tags = [:fast] begin
+    x = Timeseries(collect(1.0:100.0), 𝑡(1.0:100.0))
+    a = @test_nowarn align(x, [20.0, 50.0, 80.0], [-2.0, 2.0])
+    @test length(a) == 3
+    @test times(a) == [20.0, 50.0, 80.0]
+
+    # zero=true (default): each window's lookup is centred on its trigger, while
+    # the data values stay put.
+    w = a[2]
+    @test length(w) == 5
+    @test collect(times(w)) == -2.0:1.0:2.0
+    @test collect(w) == [48.0, 49.0, 50.0, 51.0, 52.0]
+
+    # zero=false keeps the absolute times.
+    b = align(x, [50.0], [-2.0, 2.0]; zero = false)
+    @test collect(times(b[1])) == 48.0:1.0:52.0
+
+    # Interval form is equivalent to the tuple form.
+    c = align(x, [50.0], -2.0 .. 2.0)
+    @test collect(times(c[1])) == collect(times(a[2]))
+end
+
+@testitem "stitch" tags = [:fast] begin
+    @test :stitch in names(TimeseriesBase)   # exported at the top level
+
+    x = Timeseries(collect(1.0:10.0), 𝑡(0.1:0.1:1.0))
+    y = Timeseries(collect(11.0:20.0), 𝑡(0.1:0.1:1.0))
+    z = @test_nowarn stitch(x, y)
+    @test z isa UnivariateRegular
+    @test parent(z) == 1.0:20.0
+    @test samplingperiod(z) == samplingperiod(x)
+    @test times(z) == 0.1:0.1:2.0
+
+    # Multivariate: concatenate along time, keep the other dimensions.
+    X = Timeseries(reshape(collect(1.0:20.0), 10, 2), 𝑡(0.1:0.1:1.0), Var(1:2))
+    Y = Timeseries(reshape(collect(21.0:40.0), 10, 2), 𝑡(0.1:0.1:1.0), Var(1:2))
+    Z = stitch(X, Y)
+    @test size(Z) == (20, 2)
+    @test dims(Z, Var) == Var(1:2)
+
+    # Vararg reduce form.
+    @test length(stitch(x, y, x)) == 30
+end
+
+@testitem "Circular statistics" tags = [:fast] begin
+    # Uniformly spread phases: ~zero resultant length, unit circular variance.
+    θ = range(0, 2π, length = 13)[1:12]
+    @test resultantlength(θ) < 1e-10
+    @test circularvar(θ) ≈ 1 atol = 1e-10
+
+    # Concentrated phases: resultant length near 1, mean near the cluster centre.
+    ϕ = [0.01, -0.01, 0.0, 0.02, -0.02]
+    @test resultantlength(ϕ) > 0.999
+    @test circularmean(ϕ) ≈ 0 atol = 1e-3
+    @test circularvar(ϕ) ≈ 1 - resultantlength(ϕ)
+    @test circularstd(ϕ) ≈ sqrt(-2 * log(resultantlength(ϕ)))
+
+    # circularmean wraps: phases either side of ±π average to π, not 0.
+    @test abs(circularmean([π - 0.01, -π + 0.01])) ≈ π atol = 1e-2
+end
+
+@testitem "phasegrad" tags = [:fast] begin
+    @test phasegrad(0.1, 0.0) ≈ 0.1
+    @test phasegrad(0.0, 0.1) ≈ -0.1
+    # Crossing the 2π boundary gives a small wrapped difference, not ~2π.
+    @test phasegrad(0.1, 2π - 0.1) ≈ 0.2 atol = 1e-10
+    @test phasegrad(2π - 0.1, 0.1) ≈ -0.2 atol = 1e-10
+    # Complex inputs use their angle.
+    @test phasegrad(exp(im * 0.1), exp(im * 0.0)) ≈ 0.1
+    # Vectorised over arrays.
+    @test phasegrad([0.1, 0.2], [0.0, 0.0]) ≈ [0.1, 0.2]
+end
+
+@testitem "Metadata helpers" tags = [:fast] begin
+    import DimensionalData as DD
+
+    # addmetadata on an array with no existing metadata (regression: this used
+    # to throw a MethodError on NoMetadata).
+    x = Timeseries(randn(10), 𝑡(1:10))
+    @test DD.metadata(x) isa DD.NoMetadata
+    x2 = @test_nowarn addmetadata(x; foo = 1, bar = 2)
+    @test DD.metadata(x2)[:foo] == 1
+    @test DD.metadata(x2)[:bar] == 2
+
+    # Merges with existing metadata.
+    x3 = Timeseries(randn(10), 𝑡(1:10); metadata = Dict(:a => 1))
+    x4 = addmetadata(x3; b = 2)
+    @test DD.metadata(x4)[:a] == 1
+    @test DD.metadata(x4)[:b] == 2
+
+    # Warns and overwrites on a duplicate key.
+    x5 = @test_logs (:warn, r"already contains") addmetadata(x3; a = 99)
+    @test DD.metadata(x5)[:a] == 99
+
+    # addrefdim appends a reference dimension.
+    xr = addrefdim(x, Var(1))
+    @test Var(1) in DD.refdims(xr)
+end
+
+@testitem "nyquist" tags = [:fast] begin
+    using Unitful
+    rts = Timeseries(randn(1001), 0:0.01:10)
+    @test nyquist(rts) == samplingrate(rts) / 2
+    @test nyquist(rts) == 50.0
+
+    # Unitful: the Nyquist frequency carries the (inverse-time) units of the rate.
+    uts = Timeseries(randn(100), (0:0.01:0.99)u"s")
+    @test nyquist(uts) == samplingrate(uts) / 2
+    @test dimension(nyquist(uts)) == dimension(u"Hz")
 end

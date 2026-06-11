@@ -200,3 +200,21 @@ end
     @test !(x isa RegularTimeseries)
     @test !(x isa MultidimensionalTimeseries)
 end
+
+@testitem "Spatial dimensions" tags = [:fast] begin
+    import DimensionalData as DD
+    # 𝑥, 𝑦, 𝑧 must map to the matching DimensionalData spatial dimensions and
+    # carry the matching labels (regression: 𝑦/𝑧 were swapped).
+    @test 𝑥 <: DD.XDim
+    @test 𝑦 <: DD.YDim
+    @test 𝑧 <: DD.ZDim
+    @test DD.label(𝑥(1:2)) == "x"
+    @test DD.label(𝑦(1:2)) == "y"
+    @test DD.label(𝑧(1:2)) == "z"
+
+    # Every in-scope dimension (including the (log-)frequency dims) is a
+    # ToolsDimension, so it dispatches to the ToolsArray constructor.
+    for D in (𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Log𝑓, Log10𝑓, Var, Obs)
+        @test D <: ToolsDimension
+    end
+end

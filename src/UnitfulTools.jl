@@ -79,7 +79,9 @@ A type representing spectra with unitful frequency units.
 UnitfulSpectrum = AbstractToolsArray{T, N, <:UnitfulFreqIndex, B} where {T, N, B}
 
 function unitfultimeseries(x::AbstractTimeseries, u::Unitful.Units)
-    t = x |> times
+    # `times` lives in the `Utils` module, which is loaded after this one, so read the
+    # time lookup directly (equivalent to `times(x)`).
+    t = val(lookup(x, 𝑡))
     t = timeunit(x) == NoUnits ? t : ustrip(t)
     t = t * u
     ds = dims(x)

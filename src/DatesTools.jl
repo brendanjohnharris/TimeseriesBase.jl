@@ -17,5 +17,4 @@ DateTimeIndex = Tuple{A,
 
 DateTimeseries = AbstractToolsArray{T, N, <:DateTimeIndex, B} where {T, N, B}
 
-unit(::DateTimeseries) = NoUnits
 end

@@ -102,7 +102,7 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
                 try
                     print(f, json(name(x)))
                 catch e
-                    @warn e
+                    @warn "Cannot serialize name" exception=(e, catch_backtrace())
                 end
             end
 
@@ -114,7 +114,7 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
                 try
                     print(f, json(metadata(x)))
                 catch e
-                    @warn e
+                    @warn "Cannot serialize metadata" exception=(e, catch_backtrace())
                 end
             end
 
@@ -124,16 +124,19 @@ function savetimeseries(f::File{format"TSV"}, x::MultidimensionalTimeseries)
                 print(f, refs)
             catch e
                 print(f, "")
-                @warn e
+                @warn "Cannot serialize refdims" exception=(e, catch_backtrace())
             end
 
             print(f, "\n")
         end
     end
 end
-function loadmultidimensionaltimeseries(f::File{format"TSV"})
-    d = load(f)
-    # table2timeseries(D) # ! Todo...
+
+# Reading the flattened DimTable layout (written for ≥3-dimensional series) back into a
+# time series is not implemented. Fail loudly rather than silently returning `nothing`.
+function loadmultidimensionaltimeseries(::File{format"TSV"})
+    throw(ArgumentError("loadtimeseries: reading a multidimensional (≥3D) time series " *
+                        "from TSV is not supported; save it as JLD2 instead."))
 end
 
 function loadtimeseries(f::File{format"TSV"})
@@ -183,7 +186,9 @@ function loadtimeseries(f::File{format"TSV"})
             vars = Dim{Symbol(vars)}(j)
         end
 
-        data = readdlm(f, '\t', header = false)
+        # `readdlm` with `header=false` always returns a matrix; assert it so the type
+        # is concrete (and so callers below don't see the header-tuple union it declares).
+        data = readdlm(f, '\t', header = false)::Matrix
         if isempty(vars)
             x = Timeseries(data[:, 2], data[:, 1]; name, metadata, refdims)
         else

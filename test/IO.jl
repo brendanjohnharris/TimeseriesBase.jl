@@ -76,3 +76,12 @@
     _x = loadtimeseries(f)
     @test x == _x
 end
+
+@testitem "IO: unsupported TSV load fails loudly" tags=[:fast] begin
+    # A TSV whose first line is not the '#' metadata header is the (unsupported)
+    # flattened DimTable layout written for ≥3D series. Loading must throw a clear
+    # error rather than silently returning `nothing`.
+    f = tempname() * ".tsv"
+    write(f, "a\tb\n1\t2\n")
+    @test_throws ArgumentError loadtimeseries(f)
+end

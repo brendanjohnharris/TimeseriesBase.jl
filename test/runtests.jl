@@ -8,6 +8,25 @@ using TestItemRunner
     Aqua.test_all(TimeseriesBase, unbound_args = true)
 end
 
+@testitem "JET" begin
+    using JET
+    # Target TimeseriesBase and all of its submodules, so static-analysis reports from
+    # e.g. Utils, IO, or UnitfulTools are included (targeting only the top module need
+    # not descend into submodules).
+    function submodules(m::Module, acc = Module[])
+        push!(acc, m)
+        for n in names(m; all = true)
+            isdefined(m, n) || continue
+            s = getfield(m, n)
+            s isa Module && s !== m && parentmodule(s) === m && submodules(s, acc)
+        end
+        return acc
+    end
+    rep = JET.report_package(TimeseriesBase;
+                             target_modules = Tuple(unique(submodules(TimeseriesBase))))
+    @test isempty(JET.get_reports(rep))
+end
+
 @testitem "Dates" tags=[:fast] begin
     using Dates, Unitful
     x = 1:100

@@ -112,8 +112,8 @@ end
 import DimensionalData: TimeDim, XDim, YDim, ZDim
 DimensionalData.@dim 𝑡 TimeDim "Time"
 DimensionalData.@dim 𝑥 XDim "x"
-DimensionalData.@dim 𝑧 YDim "y"
-DimensionalData.@dim 𝑦 ZDim "z"
+DimensionalData.@dim 𝑦 YDim "y"
+DimensionalData.@dim 𝑧 ZDim "z"
 
 abstract type VariableDim{T} <: Dimension{T} end
 DimensionalData.@dim Var VariableDim "Var"
@@ -151,7 +151,7 @@ to `DimensionalData.Dimension` for dispatch purposes.
 ## See also
 - [`ToolsDim`](@ref)
 """
-ToolsDimension = Union{𝑡,𝑥,𝑧,𝑦,𝑓,Var,Obs,ToolsDim}
+ToolsDimension = Union{𝑡,𝑥,𝑦,𝑧,𝑓,Log𝑓,Log10𝑓,Var,Obs,ToolsDim}
 
 function DimensionalData.dimconstructor(::Tuple{ToolsDimension,
     Vararg{DimensionalData.Dimension}})

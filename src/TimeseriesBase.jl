@@ -41,9 +41,9 @@ export dimunit, timeunit, frequnit, unit,
 
 include("Utils.jl")
 using TimeseriesBase.Utils
-export times, step, samplingrate, samplingperiod, duration, coarsegrain,
+export times, step, samplingrate, samplingperiod, nyquist, duration, coarsegrain,
        buffer, window, delayembed, rectifytime, rectify, matchdim, regularize,
-       interlace,
+       interlace, stitch,
        centraldiff!, centraldiff, centralderiv!, centralderiv,
        rightdiff!, rightdiff, rightderiv!, rightderiv,
        leftdiff!, leftdiff, leftderiv!, leftderiv,

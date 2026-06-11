@@ -12,7 +12,7 @@ import DimensionalData: At, Between, Touches, Near, Where, Contains
 using Unitful
 using Statistics
 
-export times, step, samplingrate, samplingperiod, duration, coarsegrain, stitch,
+export times, step, samplingrate, samplingperiod, nyquist, duration, coarsegrain, stitch,
     buffer, window, delayembed, rectifytime, rectify, matchdim, regularize,
     interlace,
     centraldiff!, centraldiff, centralderiv!, centralderiv,
@@ -122,6 +122,22 @@ julia> samplingperiod(rts) == 1
 samplingperiod(x::RegularTimeseries; kwargs...) = step(x; kwargs...)
 
 """
+    nyquist(x::RegularTimeseries)
+
+Returns the Nyquist frequency (half the [`samplingrate`](@ref)) of a regularly sampled
+[`RegularTimeseries`](@ref): the highest frequency representable without aliasing.
+
+## Examples
+```@example 1
+julia> t = 0:0.01:10;
+julia> x = rand(length(t));
+julia> rts = Timeseries(x, t);
+julia> nyquist(rts) == samplingrate(rts) / 2
+```
+"""
+nyquist(x::RegularTimeseries; kwargs...) = samplingrate(x; kwargs...) / 2
+
+"""
     duration(x::AbstractTimeseries)
 
 Returns the duration of the [`AbstractTimeseries`](@ref) `x`.
@@ -216,7 +232,13 @@ function spiketimes(x::SpikeTrain)
 end
 spiketimes(x::AbstractArray) = x
 
-function interlace(x::AbstractTimeseries, y::AbstractTimeseries)
+"""
+    interlace(x::UnivariateTimeseries, y::UnivariateTimeseries)
+
+Interleave two univariate time series into a single series whose time index is the sorted
+union of `times(x)` and `times(y)`, with the values reordered to match.
+"""
+function interlace(x::UnivariateTimeseries, y::UnivariateTimeseries)
     ts = vcat(times(x), times(y))
     idxs = sortperm(ts)
     ts = ts[idxs]
@@ -227,14 +249,14 @@ end
 
 function _buffer(x, n::Integer, p::Integer = 0; discard::Bool = true)
     y = [@views x[i:min(i + n - 1, end)] for i in 1:(n - p):length(x)]
-    while discard && length(y[end]) < n
+    while discard && !isempty(y) && length(y[end]) < n
         pop!(y)
     end
     return y
 end
 function _buffer(x::AbstractMatrix, n::Integer, p::Integer = 0; discard::Bool = true)
     y = [@views x[i:min(i + n - 1, end), :] for i in 1:(n - p):size(x, 1)]
-    while discard && size(y[end], 1) < n
+    while discard && !isempty(y) && size(y[end], 1) < n
         pop!(y)
     end
     return y
@@ -258,6 +280,9 @@ See also: [`window`](@ref), [`delayembed`](@ref), [`coarsegrain`](@ref)
 """
 function buffer(x::RegularTimeseries, args...; kwargs...)
     y = _buffer(x, args...; kwargs...)
+    # No complete buffers (e.g. window longer than the series): return an empty
+    # time series rather than indexing into an empty buffer list.
+    isempty(y) && return Timeseries(y, times(x)[1:0])
     t = _buffer(times(x), args...; kwargs...) .|> mean
     # For a regular time series, the buffer centres are regular
     ts = range(first(t), last(t), length(y))
@@ -434,6 +459,9 @@ end
 # so we don't re-fit.
 _default_atol(step_with_units) = 1.0e-6 * abs(step_with_units)
 
+# Normalise a `dims` argument (a single dim, a `Tuple`, or a vector) to a `Vector` of dims.
+_dimlist(dims) = dims isa Tuple || dims isa AbstractVector ? collect(dims) : [dims]
+
 function _check_regularity(maxdev, worst, ts, dim, atol, fitted_step; strict = true)
     tol = atol === nothing ? _default_atol(fitted_step) : atol
     if maxdev > tol
@@ -494,7 +522,7 @@ function regularize(
         X::AbstractDimArray; dims = 𝑡, atol = nothing, sigdigits = nothing,
         zero = false, strict = true
     )
-    dimlist = (dims isa Tuple || dims isa AbstractVector) ? collect(dims) : [dims]
+    dimlist = _dimlist(dims)
     for dim in dimlist
         d = DimensionalData.dims(X, dim)
         grid, orig = regularize(
@@ -540,7 +568,7 @@ function regularize(
         sigdigits = nothing, zero = false, strict = true
     )
     isempty(Xs) && return Xs
-    dimlist = (dims isa Tuple || dims isa AbstractVector) ? collect(dims) : [dims]
+    dimlist = _dimlist(dims)
 
     for dim in dimlist
         all_dims = [DimensionalData.dims(x, dim) for x in Xs]
@@ -609,6 +637,21 @@ end
 regularize(X1::AbstractDimArray, Xrest::AbstractDimArray...; kwargs...) =
     regularize(AbstractDimArray[X1, Xrest...]; kwargs...)
 
+"""
+    rectify(ts::Dimension; tol=4, zero=false)
+    rectify(X::AbstractDimArray; dims, tol=4, zero=false)
+    rectify(X1, X2, ...; dims=𝑡, tol=4, zero=false)
+
+Replace a near-regular lookup with a regular range, rounding the step to `tol` significant
+figures. The array forms operate along `dims`; the vararg form additionally aligns several
+arrays onto a shared grid. With `zero=true` the lookup starts at zero and the original is
+stored in metadata.
+
+!!! note
+    Superseded by [`regularize`](@ref), which fits the grid by least squares, checks
+    regularity by maximum deviation, and throws (rather than warns) on failure by default.
+    Prefer `regularize` for new code.
+"""
 function rectify(ts::DimensionalData.Dimension; tol=4, zero=false, extend=false,
     atol=nothing)
     u = unit(eltype(ts))
@@ -642,10 +685,7 @@ function rectify(ts::DimensionalData.Dimension; tol=4, zero=false, extend=false,
 end
 
 function rectify(X::AbstractDimArray; dims, tol=4, zero=false, kwargs...) # tol gives significant figures for rounding
-    if !(dims isa Tuple || dims isa AbstractVector)
-        dims = [dims]
-    end
-    for dim in dims
+    for dim in _dimlist(dims)
         ts, origts = rectify(DimensionalData.dims(X, dim); tol, zero, extend=true,
             kwargs...)
         ts = ts[1:size(X, dim)] # Should be ok?
@@ -662,13 +702,8 @@ end
 function rectify(X::Vararg{AbstractDimArray}; dims=𝑡, tol=4, zero=false,
     kwargs...)
 
-    # Ensure dims is iterable
-    if !(dims isa Tuple || dims isa AbstractVector)
-        dims = [dims]
-    end
-
     # Process each dimension
-    for dim in dims
+    for dim in _dimlist(dims)
         # Extract dimension values from all arrays
         all_dims = [DimensionalData.dims(x, dim) for x in X]
 
@@ -747,6 +782,16 @@ not approximately constant, a warning is issued and the rectification is skipped
 """
 rectifytime(X::Vararg{AbstractTimeseries}; kwargs...) = rectify(X...; dims=𝑡, kwargs...)
 
+"""
+    matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false)
+
+Align a collection of dimensional arrays onto a common rectified grid along `dims`, so that
+every element of `X` shares an identical lookup.
+
+!!! note
+    Superseded by [`regularize`](@ref), which fits the grid by least squares and applies a
+    stricter regularity check; prefer `regularize` for new code.
+"""
 function matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=false,
     kwargs...)
     # Generate some common time indices as close as possible to the rectified times of each element of the input vector. At most this will change each time index by a maximum of 1 sampling period. We could do better--maximum of a half-- but leave that for now.
@@ -774,6 +819,14 @@ function matchdim(X::AbstractVector{<:AbstractDimArray}; dims=1, tol=4, zero=fal
     return X
 end
 
+"""
+    phasegrad(x, y)
+
+The signed circular difference between angles `x` and `y` (in radians), wrapped to
+`(-π, π]`: the shortest signed rotation from `y` to `x`. For example
+`phasegrad(0.1, 2π - 0.1) ≈ 0.2`, not `≈ -2π`. Broadcasts over arrays, and uses `angle`
+for `Complex` inputs.
+"""
 phasegrad(x::Real, y::Real) = mod(x - y + π, 2π) - π # +pi - pi because we want the difference mapped from -pi to +pi, so we can represent negative changes.
 phasegrad(x, y) = phasegrad.(x, y)
 phasegrad(x::Complex, y::Complex) = phasegrad(angle(x), angle(y))
@@ -894,13 +947,53 @@ Base.abs(x::AbstractTimeseries) = Base.abs.(x)
 Base.angle(x::AbstractTimeseries) = Base.angle.(x)
 
 # * See https://en.wikipedia.org/wiki/Directional_statistics
+
+"""
+    resultant(θ; dims...)
+
+The mean resultant vector of a sample of angles `θ` (in radians), `mean(exp.(im .* θ))`.
+Its length and argument summarise the concentration and mean direction of a circular
+distribution. `dims` is passed through to `mean`.
+
+See also [`resultantlength`](@ref), [`circularmean`](@ref).
+"""
 resultant(θ; kwargs...) = mean(exp.(im .* θ); kwargs...)
+
+"""
+    resultantlength(θ; dims...)
+
+The length of the mean [`resultant`](@ref) vector of angles `θ`, in `[0, 1]`: near `0` for
+uniformly spread angles, near `1` for tightly concentrated angles.
+"""
 resultantlength(θ; kwargs...) = abs.(resultant(θ; kwargs...))
+
+"""
+    circularmean(θ; dims...)
+
+The circular mean of angles `θ` (radians): the argument of the mean [`resultant`](@ref)
+vector, in `(-π, π]`.
+"""
 circularmean(θ; kwargs...) = angle.(resultant(θ; kwargs...))
+
+"""
+    circularvar(θ; dims...)
+
+The circular variance of angles `θ`, `1 - resultantlength(θ)`, in `[0, 1]`.
+"""
 circularvar(θ; kwargs...) = 1 - resultantlength(θ; kwargs...)
+
+"""
+    circularstd(θ; dims...)
+
+The circular standard deviation of angles `θ`, `sqrt(-2 log(resultantlength(θ)))`.
+"""
 circularstd(θ; kwargs...) = sqrt.(-2 * log.(resultantlength(θ; kwargs...)))
 
-## Add refdims to a DimArray
+"""
+    addrefdim(X::AbstractDimArray, dim::DimensionalData.Dimension)
+
+Return `X` with `dim` appended to its reference dimensions (`refdims`).
+"""
 function addrefdim(X::AbstractDimArray, dim::DimensionalData.Dimension)
     return rebuild(
         X; dims = dims(X),
@@ -910,13 +1003,20 @@ function addrefdim(X::AbstractDimArray, dim::DimensionalData.Dimension)
     )
 end
 
+"""
+    addmetadata(X::AbstractDimArray; kwargs...)
+
+Return `X` with the keyword arguments merged into its metadata. Existing entries are kept;
+any key that collides with a keyword argument is overwritten (with a warning).
+"""
 function addmetadata(X::AbstractDimArray; kwargs...)
-    p = DimensionalData.metadata(X)
-    p = p isa DimensionalData.Metadata ? pairs(p.val) : pairs(p)
-    if any(keys(kwargs) .∈ [keys(p)])
-        @warn "Metadata already contains one of the keys, overwriting $(collect(pairs(kwargs))[keys(kwargs) .∈ [keys(p)]])"
-    end
-    md = DimensionalData.Metadata(p..., kwargs...)
+    md0 = DimensionalData.metadata(X)
+    prs = md0 isa DimensionalData.NoMetadata ? Pair{Symbol, Any}[] :
+        md0 isa DimensionalData.Metadata ? collect(pairs(md0.val)) :
+        collect(pairs(md0))
+    dup = intersect(collect(keys(kwargs)), first.(prs))
+    isempty(dup) || @warn "Metadata already contains keys, overwriting: $(dup)"
+    md = DimensionalData.Metadata(prs..., kwargs...)
     return rebuild(
         X; dims = dims(X),
         metadata = md,
@@ -952,19 +1052,6 @@ function align(
     return x
 end
 align(x, ts, dt::Interval; kwargs...) = align(x, ts, extrema(dt); kwargs...)
-
-function upsample(d::DimensionalData.Dimension{<:RegularIndex}, factor::Number)
-    return rebuild(d, range(start = minimum(d), stop = maximum(d), step = step(d) / factor))
-end
-function upsample(d::DimensionalData.Dimension, factor)
-    return rebuild(
-        d,
-        range(
-            start = minimum(d), stop = maximum(d),
-            step = mean(diff(lookup(d))) / factor
-        )
-    )
-end
 
 """
     stitch(x, args...)
@@ -1083,6 +1170,17 @@ function coarsegrain(
     return X
 end
 
+"""
+    Dropdims(f)
+
+Wrap a reducing function `f` so that the reduced dimensions are dropped from the result:
+`Dropdims(f)(args...; dims, kwargs...)` is `dropdims(f(args...; dims, kwargs...); dims)`.
+
+## Examples
+```julia
+julia> Dropdims(sum)(x; dims = 1)   # sum over dimension 1 and drop it
+```
+"""
 struct Dropdims <: Function
     f::Any
 end
