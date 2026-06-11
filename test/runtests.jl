@@ -10,6 +10,8 @@ end
 
 @testitem "JET" begin
     if isempty(VERSION.prerelease)
+        import Pkg
+        Pkg.add("JET")
         using JET
         mods = (TimeseriesBase,)
         JET.test_package(TimeseriesBase; target_modules = mods)
@@ -32,7 +34,9 @@ end
         JET.test_opt(Tuple{typeof(circularvar), VF}; target_modules = mods)
         JET.test_opt(Tuple{typeof(circularstd), VF}; target_modules = mods)
 
-        JET.test_opt(Tuple{typeof(centralderiv), TF}; broken = true, target_modules = mods)
+        if VERSION >= v"1.11"
+            JET.test_opt(Tuple{typeof(centralderiv), TF}; broken = true, target_modules = mods)
+        end
     else
         @warn "JET will fail on unreleased Julia versions; skipping JET tests" version = VERSION
     end
