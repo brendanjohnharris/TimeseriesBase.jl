@@ -9,7 +9,36 @@ using TimeseriesBase.TimeSeries
 using TimeseriesBase.Utils
 using DimensionalData
 
-export savetimeseries, savets, loadtimeseries, loadts
+export savetimeseries, savets, loadtimeseries, loadts, loadtoolsarray, toolsarray_typemap
+
+"""
+    loadtoolsarray(file, key)
+
+Load `key` from a JLD2 `file`, reconstructing any stored `ToolsArray`/`DimArray`
+robustly: a dimension whose custom type is absent from the current workspace comes
+back as a generic `Dim{name}` carrying the original lookup (with a warning) rather
+than degrading the whole array to an opaque type. When every type is present the
+result is identical to a plain load. Requires `JLD2` to be loaded.
+
+See [`toolsarray_typemap`](@ref) for the underlying typemap, which can be passed
+directly to `JLD2.load`/`jldopen` (e.g. for multi-key files).
+"""
+function loadtoolsarray end
+
+"""
+    toolsarray_typemap(f, path, params)
+
+A JLD2 `typemap` function that reconstructs stored `ToolsArray`/`DimArray` values
+robustly (see [`loadtoolsarray`](@ref)). Pass it to either access pattern:
+
+```julia
+JLD2.load(file, key; typemap = toolsarray_typemap)
+jldopen(file; typemap = toolsarray_typemap) do f; f[key]; end
+```
+
+Requires `JLD2` to be loaded.
+"""
+function toolsarray_typemap end
 
 savetimeseries(f::String, x) = savetimeseries(f |> query, x)
 loadtimeseries(f::String) = loadtimeseries(f |> query)

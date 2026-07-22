@@ -63,6 +63,6 @@ export ℬ, ℬ!, ℒ!, ℒ, 𝒯
 
 include("IO.jl")
 using TimeseriesBase.IO
-export savetimeseries, savets, loadtimeseries, loadts
+export savetimeseries, savets, loadtimeseries, loadts, loadtoolsarray, toolsarray_typemap
 
 end
