@@ -27,8 +27,17 @@ function _recon_dim_name(d)
     return Symbol(head)
 end
 
-# The stored lookup (the whole `Lookup`, not bare values, so `format` does not re-infer).
-_recon_dim_val(d) = d isa DD.Dimension ? DD.val(d) : getproperty(d, :val)
+# The stored lookup (the whole `Lookup`, not bare values, so `format` does not re-infer). When the
+# lookup's own type is absent here (a custom `Lookup`, or one whose values are a `ToolsArray`), JLD2
+# hands back a reconstructed struct that `format` rejects; fall back to its raw values (any nested
+# `ToolsArray` is already upgraded by the typemap) so `format` re-infers a plain `Lookup`.
+function _recon_dim_val(d)
+    d isa DD.Dimension && return DD.val(d)
+    v = getproperty(d, :val)
+    (v isa JLD2.ReconstructedStatic || v isa JLD2.ReconstructedMutable) &&
+        return collect(getproperty(v, :data))
+    return v
+end
 
 function _rebuild_dims(ds)
     out = map(ds) do d
