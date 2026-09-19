@@ -87,7 +87,11 @@ function ToolsArray(
     )
     return ToolsArray(data, dims; kwargs...)
 end
-ToolsArray{T}(A::AbstractToolsArray; kw...) where {T} = ToolsArray(convert.(T, A))
+# Convert only the element type: broadcasting `convert` would drop name and metadata,
+# and the keyword arguments must still reach the constructor.
+function ToolsArray{T}(A::AbstractToolsArray; kw...) where {T}
+    return ToolsArray(A; data = convert.(T, parent(A)), kw...)
+end
 ToolsArray{T}(A::AbstractToolsArray{T}; kw...) where {T} = ToolsArray(A; kw...)
 
 """
@@ -147,6 +151,86 @@ DimensionalData.@dim 𝑓 FrequencyDim "Frequency"
 abstract type LogFrequencyDim{T} <: Dimension{T} end
 DimensionalData.@dim Log10𝑓 LogFrequencyDim "Log10 Frequency"
 DimensionalData.@dim Log𝑓 LogFrequencyDim "Natural Log Frequency"
+
+"""
+    𝑡
+
+A DimensionalData.jl dimension representing time. An array whose first dimension is `𝑡`
+is an [`AbstractTimeseries`](@ref); its values are returned by [`times`](@ref).
+
+## See also
+- [`Timeseries`](@ref), [`times`](@ref), [`samplingrate`](@ref)
+"""
+𝑡
+
+"""
+    𝑥
+
+A DimensionalData.jl dimension representing the first spatial axis.
+
+## See also
+- [`𝑦`](@ref), [`𝑧`](@ref)
+"""
+𝑥
+
+"""
+    𝑦
+
+A DimensionalData.jl dimension representing the second spatial axis.
+
+## See also
+- [`𝑥`](@ref), [`𝑧`](@ref)
+"""
+𝑦
+
+"""
+    𝑧
+
+A DimensionalData.jl dimension representing the third spatial axis.
+
+## See also
+- [`𝑥`](@ref), [`𝑦`](@ref)
+"""
+𝑧
+
+"""
+    Obs
+
+A DimensionalData.jl dimension representing repeated observations of the same quantity
+(trials, repeats, or realisations), as distinct from [`Var`](@ref), which indexes
+different quantities.
+"""
+Obs
+
+"""
+    Log10𝑓
+
+A DimensionalData.jl dimension representing frequency on a base-10 logarithmic scale; its
+values are `log10(f)`, not `f`.
+
+!!! note
+    `Log10𝑓` is a `LogFrequencyDim`, not a `FrequencyDim`, so an array indexed by it is
+    not an `AbstractSpectrum` and [`freqs`](@ref) does not apply to it.
+
+## See also
+- [`𝑓`](@ref), [`Log𝑓`](@ref)
+"""
+Log10𝑓
+
+"""
+    Log𝑓
+
+A DimensionalData.jl dimension representing frequency on a natural logarithmic scale; its
+values are `log(f)`, not `f`.
+
+!!! note
+    `Log𝑓` is a `LogFrequencyDim`, not a `FrequencyDim`, so an array indexed by it is not
+    an `AbstractSpectrum` and [`freqs`](@ref) does not apply to it.
+
+## See also
+- [`𝑓`](@ref), [`Log10𝑓`](@ref)
+"""
+Log𝑓
 
 """
     ToolsDim{T}

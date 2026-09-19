@@ -218,3 +218,19 @@ end
         @test D <: ToolsDimension
     end
 end
+
+@testitem "ToolsArray{T} converts eltype and keeps everything else" tags = [:fast] begin
+    A = ToolsArray(
+        randn(4), (𝑡(1:4),); name = :orig, metadata = Dict(:k => 1),
+        refdims = (Var(:a),)
+    )
+    B = ToolsArray{Float32}(A)
+    @test eltype(B) == Float32
+    @test parent(B) ≈ Float32.(parent(A))
+    @test name(B) == :orig
+    @test metadata(B) == Dict(:k => 1)
+    @test refdims(B) == refdims(A)
+    @test dims(B) == dims(A)
+    @test name(ToolsArray{Float32}(A; name = :new)) == :new # kwargs must be honoured
+    @test name(ToolsArray{Float64}(A; name = :same)) == :same
+end

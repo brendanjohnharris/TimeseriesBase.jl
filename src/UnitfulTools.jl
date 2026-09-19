@@ -10,6 +10,34 @@ using Unitful
 import Unitful.unit
 
 using DimensionalData
+import DimensionalData: Dates
+
+# `Unitful.unit` has no method for `Dates` values, and giving it one would be piracy
+# (both `unit` and `DateTime` are foreign). The package therefore asks `_unit` instead,
+# which reports `NoUnits` for a Dates value: it carries no *Unitful* unit, so every
+# `== NoUnits` branch in the package treats it like a plain number, which is right.
+_unit(x) = unit(x)
+_unit(::Type{<:Dates.AbstractTime}) = NoUnits
+_unit(::Dates.AbstractTime) = NoUnits
+
+"""
+    TimeseriesBase.UnitfulTools._stepquantity(s)
+
+The sampling step `s` in a form that can be divided into `1` to give a rate. Numbers and
+`Unitful` quantities pass through. A fixed `Dates.Period` becomes the equivalent number
+of seconds. A calendar period (`Year`, `Month`, `Quarter`) has no fixed length, so no
+rate exists and an `ArgumentError` is thrown.
+"""
+_stepquantity(s) = s
+_stepquantity(p::Dates.Period) = uconvert(u"s", p)
+function _stepquantity(p::Union{Dates.Year, Dates.Month, Dates.Quarter})
+    return throw(
+        ArgumentError(
+            "a $(nameof(typeof(p))) is not a fixed duration, so a sampling rate is " *
+                "undefined; resample onto a fixed period (Day, Hour, Second, ...) first"
+        )
+    )
+end
 
 export dimunit, timeunit, frequnit, unit,
     UnitfulIndex, UnitfulTimeseries, UnitfulSpectrum,
@@ -126,7 +154,7 @@ julia> ts = Timeseries(x, (t)u"ms");
 julia> TimeseriesBase.dimunit(ts, 𝑡) == u"ms"
 ```
 """
-dimunit(x::AbstractToolsArray, dim) = dims(x, dim) |> eltype |> unit
+dimunit(x::AbstractToolsArray, dim) = dims(x, dim) |> eltype |> _unit
 
 """
     timeunit(x::UnitfulTimeseries)
@@ -141,6 +169,8 @@ julia> x = rand(100);
 julia> ts = Timeseries(x, (t)u"ms");
 julia> timeunit(ts) == u"ms"
 ```
+
+Returns `NoUnits` for a `Dates` time index, which carries no `Unitful` unit.
 """
 timeunit(x::AbstractTimeseries) = dimunit(x, 𝑡)
 
@@ -159,7 +189,7 @@ julia> sp = fft(ts);  # assuming fft returns a UnitfulSpectrum
 julia> frequnits(sp) == u"Hz"
 ```
 """
-frequnit(x::AbstractSpectrum) = dimunit(x, 𝑓)
+frequnit(x::AbstractSpectrum) = dimunit(x, 1) # by position: `𝑓` matches only that name
 
 """
     unit(x::AbstractArray)
@@ -178,6 +208,20 @@ julia> unit(ts) == u"V"
 unit(x::Union{<:AbstractTimeseries, AbstractSpectrum}) = x |> eltype |> unit
 unit(x::Union{<:AbstractTimeseries{Any}, AbstractSpectrum{Any}}) = NoUnits
 
+"""
+    ustripall(x)
+
+Strip Unitful units from `x`, recursively. For an `AbstractDimArray` this covers the data
+and every dimension lookup, preserving the array type and each dimension's type. Values
+that carry no units (numbers, strings, symbols, ranges of them) are returned unchanged.
+
+Reference dimensions and metadata are deliberately left alone: they describe where the
+array came from rather than what it holds, so a stripped array may still carry
+`Quantity` values in `refdims(x)` or `metadata(x)`.
+
+## See also
+- [`unit`](@ref), [`dimunit`](@ref), [`timeunit`](@ref)
+"""
 function ustripall(x::AbstractDimArray)
     x = set(x, ustripall.(parent(x)))
     for d in dims(x)

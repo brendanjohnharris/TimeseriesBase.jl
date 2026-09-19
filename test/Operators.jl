@@ -19,3 +19,16 @@
     T = 𝒯(-1)
     @test times(T(x)) == -1:step(x):0
 end
+
+@testitem "Shift operators work on multivariate series" tags = [:fast] begin
+    D = randn(6, 3)
+    X = Timeseries(copy(D), 1.0:6.0, [:a, :b, :c])
+    # shifts act along time (the first dimension), per column
+    @test parent(ℬ(X)) == circshift(D, 1)
+    @test parent(ℒ(X)) == circshift(D, -1)
+    @test parent(ℬ(X, 2)) == circshift(D, 2)
+    @test times(ℬ(X)) == times(X)
+    @test dims(ℬ(X), Var) == dims(X, Var)
+    v = Timeseries(collect(1.0:5.0), 1.0:5.0) # univariate unchanged
+    @test parent(ℬ(v)) == circshift(collect(1.0:5.0), 1)
+end

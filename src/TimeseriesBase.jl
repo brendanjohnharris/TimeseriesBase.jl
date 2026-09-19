@@ -13,6 +13,10 @@ export AbstractToolsArray, ToolsArray,
     ToolsDimension, ToolsDim,
     𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs, Log𝑓, Log10𝑓
 
+include("DatesTools.jl")
+using TimeseriesBase.DatesTools
+export DateIndex, DateTimeIndex, DateTimeseries
+
 include("TimeSeries.jl")
 using TimeseriesBase.TimeSeries
 export AbstractTimeseries,
@@ -52,10 +56,6 @@ export times, step, samplingrate, samplingperiod, nyquist, duration, coarsegrain
     phasegrad, addrefdim, addmetadata, align,
     spiketrain, spiketimes,
     Dropdims
-
-include("DatesTools.jl")
-using TimeseriesBase.DatesTools
-export DateIndex, DateTimeIndex, DateTimeseries
 
 include("Operators.jl")
 using TimeseriesBase.Operators

@@ -90,3 +90,34 @@ end
     @test yg[1, 1] isa AbstractToolsArray
     @test parent(yg[1, 1]) == [12.0, 13.0]                 # cell i=1,j=1: (1:2) .+ 11
 end
+
+@testitem "JLD2 typemap matches only the intended paths" tags = [:fast] begin
+    using JLD2
+    tm = TimeseriesBase.toolsarray_typemap
+    @test tm(nothing, "TimeseriesBase.ToolsArrays.ToolsArray", []).target === ToolsArray
+    @test tm(nothing, "TimeseriesTools.ToolsArray", []).target === ToolsArray
+    @test tm(nothing, "DimensionalData.DimArray", []).target === DimArray
+    # a foreign type whose name merely ends in ToolsArray/DimArray must not be claimed
+    @test_throws MethodError tm(nothing, "Main.MyToolsArray", [])
+    @test_throws MethodError tm(nothing, "Main.MyDimArray", [])
+end
+
+@testitem "Dates: JLD2 round trip" tags = [:fast] begin
+    using JLD2, Dates
+    dir = mktempdir()
+    for (nm, t) in (
+            :DateTime => DateTime(2020, 1, 1):Day(1):DateTime(2020, 1, 10),
+            :Date => Date(2020, 1, 1):Day(1):Date(2020, 1, 10),
+            :Period => Day(1):Day(1):Day(10),
+            :Year => DateTime(1901):Year(1):DateTime(1910),
+            :Vector => collect(DateTime(2020, 1, 1):Day(1):DateTime(2020, 1, 10)),
+        )
+        x = Timeseries(randn(10), t)
+        f = joinpath(dir, "$nm.jld2")
+        savetimeseries(f, x)
+        y = loadtimeseries(f)
+        @test times(y) == times(x)
+        @test typeof(times(y)) == typeof(times(x)) # exact, unlike the TSV path
+        @test y == x
+    end
+end

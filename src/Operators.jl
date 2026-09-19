@@ -7,14 +7,16 @@ export ℬ, ℬ!, ℒ!, ℒ, 𝒯
 
 # ? Some basic time-series operators
 
+# A comment between a docstring and its definition detaches the two, so this sits above:
+# `circshift!(x, n)` (in place on itself) exists only for vectors, so go through the
+# parent and a temporary. An integer shift moves the first dimension, which is time.
 """
     ℬ!(x, [n=1])
 
 In-place [`ℬ`](@ref): circularly shift the elements of `x` forward by `n` positions
-(default `1`).
+(default `1`). For a multivariate series the shift is along time (the first dimension).
 """
-ℬ!(x) = circshift!(x, 1)
-ℬ!(x, n) = circshift!(x, n)
+ℬ!(x, n = 1) = (p = parent(x); copyto!(p, circshift(p, n)); x)
 
 """
     ℬ(x, [n=1])
@@ -35,8 +37,7 @@ form, and [`ℒ`](@ref), [`𝒯`](@ref).
 In-place [`ℒ`](@ref): circularly shift the elements of `x` backward by `n` positions
 (default `1`).
 """
-ℒ!(x) = circshift!(x, -1)
-ℒ!(x, n) = circshift!(x, -n)
+ℒ!(x, n = 1) = ℬ!(x, -n)
 
 """
     ℒ(x, [n=1])

@@ -77,13 +77,14 @@ const RegularTimeseries = AbstractToolsArray{
     B,
 } where {T, N, B}
 
+# Each trailing dimension must be regular, but they need not share a lookup type: a
+# shared `B` would reject e.g. `𝑥(1:3)` alongside `𝑦(1.0:3.0)`.
 const MultidimensionalIndex = Tuple{
     A,
-    Vararg{Dimension{B}},
+    Vararg{Dimension{<:RegularIndex}},
 } where {
     A <:
     TimeDim{<:RegularIndex},
-    B <: RegularIndex,
 }
 
 """

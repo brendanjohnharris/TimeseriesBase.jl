@@ -64,6 +64,37 @@ end
     # ........and other funcs
 end
 
+@testitem "Spectra: any FrequencyDim is a spectrum" tags = [:fast] begin
+    using DimensionalData, Unitful
+    import TimeseriesBase.ToolsArrays: FrequencyDim
+    DimensionalData.@dim MyFreq FrequencyDim "My frequency"
+
+    @test RegularSpectrum <: AbstractSpectrum
+
+    s = ToolsArray(randn(4), (𝑓(1.0:4.0),))        # the built-in frequency dim
+    m = ToolsArray(randn(4), (MyFreq(1.0:4.0),))   # a downstream one
+    for a in (s, m)
+        @test a isa AbstractSpectrum
+        @test a isa RegularSpectrum
+        @test freqs(a) == 1.0:4.0
+    end
+    @test frequnit(ToolsArray(randn(4), (MyFreq((1.0:4.0)u"Hz"),))) == u"Hz"
+
+    # A log-frequency axis is deliberately not a spectrum: its values are log(f), so the
+    # spectrum methods would misread them.
+    l = ToolsArray(randn(4), (Log𝑓(1.0:4.0),))
+    @test !(l isa AbstractSpectrum)
+    @test !(l isa RegularSpectrum)
+
+    # Spectrograms follow the same rule, with frequency as the second dimension.
+    for d in (𝑓(1.0:4.0), MyFreq(1.0:4.0))
+        sg = ToolsArray(randn(3, 4), (𝑡(1.0:3.0), d))
+        @test sg isa AbstractSpectrogram
+        @test freqs(sg) == 1.0:4.0
+        @test times(sg) == 1.0:3.0
+    end
+end
+
 include("ToolsArrays.jl")
 include("Utils.jl")
 include("UnitfulTools.jl")

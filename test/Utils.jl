@@ -117,6 +117,13 @@ end
         dX[2:(end - 1), :] .==
             ((parent(X)[3:end, :] - parent(X)[1:(end - 2), :]) / 2) ./ samplingperiod(X)
     )
+
+    # Endpoints repeat their neighbours' central differences rather than switching to a
+    # one-sided stencil; the docstring says so, so pin it.
+    @test parent(dx)[1] == parent(dx)[2]
+    @test parent(dx)[end] == parent(dx)[end - 1]
+    @test parent(centraldiff(X))[1, :] == parent(centraldiff(X))[2, :]
+    @test parent(centraldiff(X))[end, :] == parent(centraldiff(X))[end - 1, :]
 end
 
 @testitem "Left and right derivatives" tags = [:fast] begin
@@ -506,4 +513,304 @@ end
     uts = Timeseries(randn(100), (0:0.01:0.99)u"s")
     @test nyquist(uts) == samplingrate(uts) / 2
     @test dimension(nyquist(uts)) == dimension(u"Hz")
+end
+
+@testitem "Differences act along dims, not linear indices" tags = [:fast] begin
+    import TimeseriesBase: leftdiff, rightdiff
+    D = [1.0 10.0; 2.0 20.0; 4.0 40.0; 8.0 80.0]
+    X = Timeseries(copy(D), 0.0:0.5:1.5, [:a, :b])
+    for f in (centraldiff, leftdiff, rightdiff, centralderiv, leftderiv, rightderiv)
+        # Each column must match the univariate result for that column, boundaries included;
+        # a kernel that indexes the flattened parent leaks across the column boundary.
+        expected = hcat((parent(f(Timeseries(D[:, j], 0.0:0.5:1.5))) for j in axes(D, 2))...)
+        @test parent(f(X)) == expected
+    end
+end
+
+@testitem "regularize: atol is converted to the lookup's unit" tags = [:fast] begin
+    using Unitful
+    x = ToolsArray(randn(10), (𝑡((0.0:1.0:9.0)u"s"),))
+    # 100 ms and 0.1 s are the same tolerance and must give the same grid
+    @test collect(times(regularize(x; atol = 100u"ms"))) ==
+        collect(times(regularize(x; atol = 0.1u"s")))
+    @test collect(times(regularize(x; atol = 0.1u"s"))) ≈ collect((0.0:1.0:9.0)u"s")
+end
+
+@testitem "regularize: returned grid is within atol of the input" tags = [:fast] begin
+    for n in (100, 1000, 10000)
+        t = collect((0:(n - 1)) .* (1 / 3)) # exactly regular, not decimal-friendly
+        x = ToolsArray(randn(n), (𝑡(t),))
+        @test maximum(abs.(collect(times(regularize(x))) .- t)) <= 1.0e-6 * (1 / 3)
+    end
+end
+
+@testitem "buffer labels each buffer with its own centre" tags = [:fast] begin
+    using Statistics
+    t = 1.0:10.0
+    x = Timeseries(collect(t), t) # value == time, so the centre is computable
+    for discard in (true, false)
+        b = buffer(x, 3; discard)
+        @test collect(times(b)) ≈ [mean(parent(bb)) for bb in b]
+    end
+end
+
+@testitem "delayembed delays match the actual sample spacing" tags = [:fast] begin
+    t = 1.0:30.0
+    x = Timeseries(collect(t), t) # value == time
+    for (n, τ, p) in ((3, 2, 1), (3, 2, 2), (4, 3, 3), (3, 1, 2))
+        e = delayembed(x, n, τ, p)
+        delays = collect(lookup(e, 2))
+        heads = collect(lookup(e, 1))
+        @test all(parent(e)[i, :] ≈ heads[i] .+ delays for i in axes(e, 1))
+    end
+end
+
+@testitem "circular statistics stay in their documented ranges" tags = [:fast] begin
+    using Random
+    Random.seed!(1)
+    # Identical angles give |resultant| == 1 up to float error; one ulp over sends
+    # circularstd's log positive and its sqrt into DomainError.
+    θs = [fill(rand() * 2π, rand(2:8)) for _ in 1:2000]
+    @test all(resultantlength(θ) <= 1 for θ in θs)
+    @test all(0 <= circularvar(θ) <= 1 for θ in θs)
+    @test all(circularstd(θ) >= 0 for θ in θs)
+    @test size(circularvar(rand(4, 3); dims = 1)) == (1, 3) # `dims` is documented
+end
+
+@testitem "rectify handles a descending lookup" tags = [:fast] begin
+    import TimeseriesBase: rectify
+    t = collect(9.0:-1.0:0.0)
+    ts, _ = rectify(𝑡(t))
+    @test collect(ts) ≈ t
+end
+
+@testitem "regularize zero=true keeps the original lookup" tags = [:fast] begin
+    t = collect(0.0:1.0:9.0)
+    # metadata already carrying the dim's own name must not displace the original
+    x = ToolsArray(randn(10), (𝑡(t),); metadata = Dict(:𝑡 => "pre-existing"))
+    @test metadata(regularize(x; zero = true))[:𝑡] == t
+    xs = [ToolsArray(randn(10), (𝑡(t),); metadata = Dict(:𝑡 => "pre-existing")) for _ in 1:2]
+    @test metadata(regularize(xs; zero = true)[1])[:𝑡] == t
+end
+
+@testitem "regularize reports single-sample inputs clearly" tags = [:fast] begin
+    a = ToolsArray(randn(1), (𝑡([1.0]),))
+    b = ToolsArray(randn(1), (𝑡([1.0]),))
+    e = try
+        regularize(a, b)
+        nothing
+    catch e
+        e
+    end
+    @test e isa ArgumentError
+    @test occursin("at least 2", e.msg) # not "median of an empty array"
+end
+
+@testitem "align accepts a dimension as well as an index" tags = [:fast] begin
+    x = Timeseries(randn(20), 0.0:1.0:19.0)
+    @test align(x, [5.0, 10.0], (-2.0, 2.0); dims = 𝑡) == align(x, [5.0, 10.0], (-2.0, 2.0))
+    @test_throws ArgumentError align(x, [5.0], (-2.0, 2.0); dims = (𝑡, Var))
+end
+
+@testitem "rectify accepts an integer dims" tags = [:fast] begin
+    import TimeseriesBase: rectify
+    a = ToolsArray(randn(10), (𝑡(collect(0.0:1.0:9.0)),))
+    b = ToolsArray(randn(10), (𝑡(collect(0.0:1.0:9.0)),))
+    @test collect(times(rectify(a, b; dims = 1)[1])) ≈ collect(times(rectify(a, b; dims = 𝑡)[1]))
+end
+
+@testitem "selectors accept an unformatted dimension" tags = [:fast] begin
+    import TimeseriesBase.Utils: At, Near
+    @test At(𝑡(1:3)) == At(1:3) # bare dim: `val` is the range itself, not a Lookup
+    x = ToolsArray(randn(3), (𝑡(1:3),))
+    @test At(dims(x, 𝑡)) == At(1:3) # formatted dim: `val` is a Lookup
+    @test Near(𝑡(1:3)) == Near(1:3)
+end
+
+@testitem "Dropdims requires dims" tags = [:fast] begin
+    x = randn(3, 4)
+    @test Dropdims(sum)(x; dims = 1) == dropdims(sum(x; dims = 1); dims = 1)
+    @test_throws UndefKeywordError Dropdims(sum)(x)
+end
+
+@testitem "Dates: rate accessors" tags = [:fast] begin
+    using Dates, Unitful
+    x = Timeseries(cumsum(randn(100)), DateTime(2020, 1, 1):Day(1):DateTime(2020, 4, 9))
+    @test samplingperiod(x) == Day(1)          # unchanged: a Period
+    @test samplingrate(x) == 1 / (86400 * u"s") # a genuine rate
+    @test nyquist(x) == samplingrate(x) / 2
+    @test timeunit(x) == NoUnits               # no Unitful unit, but must not throw
+
+    h = Timeseries(randn(10), DateTime(2020, 1, 1):Hour(1):DateTime(2020, 1, 1, 9))
+    @test samplingrate(h) == 1 / (3600 * u"s")
+
+    # A calendar period has no fixed length, so a rate is undefined; say so clearly.
+    y = Timeseries(collect(1:100), DateTime(1901):Year(1):DateTime(2000))
+    @test_throws ArgumentError samplingrate(y)
+    @test_throws ArgumentError nyquist(y)
+    @test samplingperiod(y) == Year(1)         # still fine
+    @test duration(y) == DateTime(2000) - DateTime(1901)
+end
+
+@testitem "Dates: derivatives" tags = [:fast] begin
+    using Dates, Unitful
+    t = DateTime(2020, 1, 1):Day(1):DateTime(2020, 1, 10)
+    x = Timeseries(cumsum(randn(10)), t)
+    for (d, dv) in ((centralderiv, centraldiff), (leftderiv, leftdiff), (rightderiv, rightdiff))
+        y = d(x)
+        @test unit(eltype(y)) == u"s^-1"
+        @test ustripall(y) ≈ parent(dv(x)) ./ 86400
+        @test times(y) == times(x)             # the Dates axis is preserved
+    end
+    # In place cannot work: the result carries rate units the input cannot store.
+    @test_throws ArgumentError centralderiv!(deepcopy(x))
+    # A calendar period still has no rate.
+    @test_throws ArgumentError centralderiv(Timeseries(randn(10), DateTime(1901):Year(1):DateTime(1910)))
+end
+
+@testitem "MultidimensionalTimeseries admits mixed lookup types" tags = [:fast] begin
+    @test Timeseries(randn(8, 3, 3), 1:8, 𝑥(1:3), 𝑦(1.0:3.0)) isa MultidimensionalTimeseries
+    @test Timeseries(randn(8, 3, 3), 1:8, 𝑥(1:3), 𝑦(1:3)) isa MultidimensionalTimeseries
+    @test Timeseries(randn(8, 3), 1:8, 𝑥(1:3)) isa MultidimensionalTimeseries
+    # An irregular dimension, time or otherwise, must still be excluded.
+    @test !(Timeseries(randn(8, 3), 1:8, 𝑥([1.0, 2.0, 4.0])) isa MultidimensionalTimeseries)
+    @test !(Timeseries(randn(8, 3), collect(1.0:8.0) .^ 2, 𝑥(1:3)) isa MultidimensionalTimeseries)
+end
+
+@testitem "phasegrad wraps to [-π, π)" tags = [:fast] begin
+    @test phasegrad(float(π), 0.0) ≈ -π # closed at the lower end, as documented
+    @test phasegrad(0.1, 2π - 0.1) ≈ 0.2
+    a = rand(500) .* 4π .- 2π
+    b = rand(500) .* 4π .- 2π
+    @test all(-π .<= phasegrad.(a, b) .< π)
+end
+
+@testitem "Dates: windowing" tags = [:fast] begin
+    using Dates, Statistics
+    t = DateTime(2020, 1, 1):Day(1):DateTime(2020, 1, 30)
+    x = Timeseries(randn(30), t)
+
+    b = buffer(x, 5)
+    @test length(b) == 6
+    @test times(b) isa AbstractRange   # full buffers sit on a regular grid
+    @test eltype(times(b)) == DateTime
+    @test first(times(b)) == DateTime(2020, 1, 3) # centre of samples 1:5
+
+    # A short final buffer sits off that grid, so centres are labelled per-buffer.
+    b2 = buffer(x, 7, 0; discard = false)
+    @test !(times(b2) isa AbstractRange)
+    @test eltype(times(b2)) == DateTime
+
+    @test size(window(x, 5, 2)) == size(window(Timeseries(randn(30), 1.0:1.0:30.0), 5, 2))
+
+    e = delayembed(x, 3, 2)
+    @test lookup(e, :delay) == [Day(-4), Day(-2), Day(0)] # `zero(δt)`, not `0`
+    @test eltype(lookup(e, 𝑡)) == DateTime
+
+    c = coarsegrain(x; dims = 𝑡)
+    @test times(c)[1] == DateTime(2020, 1, 1, 12)
+    @test times(c)[2] == DateTime(2020, 1, 3, 12)
+
+    # A `Date` axis has day resolution, not millisecond; a `Period` axis is a vector
+    # space but integer-quantised, so `mean([Day(1), Day(2)])` throws on its own.
+    d = Timeseries(randn(20), Date(2020, 1, 1):Day(1):Date(2020, 1, 20))
+    @test eltype(times(buffer(d, 4))) == Date
+    # Samples 1:4 have mean offset 1.5 days, which rounds to even.
+    @test first(times(buffer(d, 4))) == Date(2020, 1, 3)
+
+    p = Timeseries(randn(20), Day(1):Day(1):Day(20))
+    @test eltype(times(buffer(p, 4))) == Day
+
+    # Window longer than the series: an empty result must not go through
+    # `times(x)[1:0]`, which needs `copysign(::Day, ::Day)`.
+    @test length(@test_nowarn buffer(Timeseries(randn(3), t[1:3]), 10)) == 0
+    @test length(@test_nowarn buffer(d, 40)) == 0
+    @test times(coarsegrain(p; dims = 𝑡))[1] == Day(1)
+
+    # The numeric path is untouched.
+    n = Timeseries(randn(30), 1.0:1.0:30.0)
+    @test times(buffer(n, 5)) == 3.0:5.0:28.0
+    @test times(coarsegrain(n; dims = 𝑡))[1] == 1.5
+end
+
+@testitem "Dates: grid repair" tags = [:fast] begin
+    using Dates
+    t = DateTime(2020, 1, 1):Day(1):DateTime(2020, 1, 30)
+    x = Timeseries(randn(30), t)
+
+    # An exact Dates range is exact by construction: returned untouched, step unit and
+    # all, rather than relabelled as milliseconds.
+    @test times(regularize(x)) === t
+    @test step(times(regularize(x))) == Day(1)
+
+    d = Timeseries(randn(20), Date(2020, 1, 1):Day(1):Date(2020, 1, 20))
+    @test times(regularize(d)) == times(d)
+
+    # A genuinely irregular lookup. The default tolerance is exact, because a Dates
+    # lookup carries no float jitter for a loose default to absorb.
+    tv = collect(t)
+    tv[5] += Hour(3)
+    xi = Timeseries(randn(30), tv)
+    @test_throws ArgumentError regularize(xi)
+    @test times(regularize(xi; atol = Hour(6))) isa AbstractRange
+    @test_throws ArgumentError regularize(xi; atol = Minute(1))
+
+    # `zero = true` means elapsed from the origin, so it yields a uniform-unit Period
+    # range; the genuine original lookup goes to metadata.
+    z = regularize(x; zero = true)
+    @test eltype(times(z)) == Millisecond
+    @test first(times(z)) == Millisecond(0)
+    @test step(times(z)) == Millisecond(86_400_000)
+    @test metadata(z)[:𝑡][1] == DateTime(2020, 1, 1)
+    @test eltype(times(regularize(d; zero = true))) == Day
+
+    # Several arrays onto one grid: the path that replaces `matchdim`.
+    m = regularize([x, x])
+    @test times(m[1]) == times(m[2])
+    @test eltype(times(m[1])) == DateTime
+
+    # The superseded trio is rejected rather than ported.
+    @test_throws ArgumentError rectify(x; dims = 𝑡)
+    @test_throws ArgumentError rectifytime(x)
+    @test_throws ArgumentError matchdim([x, x])
+
+    # The numeric path is untouched.
+    n = Timeseries(randn(30), 1.0:1.0:30.0)
+    @test times(regularize(n)) == 1.0:1.0:30.0
+    @test times(regularize(n; zero = true)) == 0.0:1.0:29.0
+    @test times(rectify(n; dims = 𝑡)) == 1.0:1.0:30.0
+end
+
+@testitem "Dates: stitch keeps the calendar" tags = [:fast] begin
+    using Dates
+    t = DateTime(2020, 1, 1):Day(1):DateTime(2020, 1, 30)
+    x = Timeseries(randn(30), t)
+    s = stitch(x, x)
+    @test length(s) == 60
+    @test first(times(s)) == DateTime(2020, 1, 1) # not Day(1)
+    @test step(times(s)) == Day(1)
+    @test last(times(s)) == DateTime(2020, 2, 29) # 2020 is a leap year
+    @test eltype(times(s)) == DateTime
+
+    X = Timeseries(randn(30, 3), t, [:a, :b, :c])
+    @test first(times(stitch(X, X))) == DateTime(2020, 1, 1)
+    @test size(stitch(X, X)) == (60, 3)
+
+    # An elapsed axis is already elapsed, so it restarts one step in as before.
+    p = Timeseries(randn(20), Day(1):Day(1):Day(20))
+    @test first(times(stitch(p, p))) == Day(1)
+
+    n = Timeseries(randn(30), 1.0:1.0:30.0)
+    @test times(stitch(n, n)) == 1.0:1.0:60.0
+end
+
+@testitem "Dates: unsupported lookup types" tags = [:fast] begin
+    using Dates
+    # `Time` is a time of day: it wraps at midnight and its ranges are unreliable in
+    # Base, so it is rejected rather than half-supported.
+    tt = Timeseries(randn(3), [Time(0), Time(1), Time(2)])
+    @test_throws ArgumentError regularize(tt)
+    # A mixed-unit Period lookup has no single resolution to count in.
+    mixed = Timeseries(randn(3), Dates.Period[Day(1), Hour(2), Hour(5)])
+    @test_throws ArgumentError regularize(mixed)
 end

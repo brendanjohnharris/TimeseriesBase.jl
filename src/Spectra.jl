@@ -24,7 +24,7 @@ A DimensionalData.jl dimension representing the frequency domain.
 
 A type alias for a tuple of dimensions, where the first dimension is of type `FrequencyDim`.
 """
-const FreqIndex = Tuple{A, Vararg{DimensionalData.Dimension}} where {A <: 𝑓}
+const FreqIndex = Tuple{A, Vararg{DimensionalData.Dimension}} where {A <: FrequencyDim}
 
 """
     AbstractSpectrum{T, N, B}
@@ -37,9 +37,10 @@ const AbstractSpectrum = AbstractToolsArray{T, N, <:FreqIndex, B} where {T, N, B
     freqs(x::AbstractSpectrum)
     freqs(x::AbstractSpectrogram)
 
-Return the frequencies (the [`𝑓`](@ref) lookup) of a spectrum or spectrogram.
+Return the frequencies of a spectrum or spectrogram: the lookup of its frequency
+dimension, which is any [`𝑓`](@ref)-like `FrequencyDim`.
 """
-freqs(x::AbstractSpectrum) = lookup(x, 𝑓) |> val
+freqs(x::AbstractSpectrum) = lookup(x, 1) |> val
 
 """
     RegularFreqIndex
@@ -93,19 +94,19 @@ end
 
 import DimensionalData: Dimension, TimeDim
 
-const TimeFreqIndex = Tuple{T, F, Vararg{Dimension}} where {T <: TimeDim, F <: 𝑓}
+const TimeFreqIndex = Tuple{T, F, Vararg{Dimension}} where {T <: TimeDim, F <: FrequencyDim}
 const RegularTimeFreqIndex = Tuple{
     T, F,
     Vararg{Dimension},
 } where {
     T <:
     TimeDim{<:RegularIndex},
-    F <: 𝑓,
+    F <: FrequencyDim,
 }
 
 const AbstractSpectrogram = AbstractToolsArray{T, N, <:TimeFreqIndex, B} where {T, N, B}
 times(x::AbstractSpectrogram) = lookup(x, 𝑡) |> val
-freqs(x::AbstractSpectrogram) = lookup(x, 𝑓) |> val
+freqs(x::AbstractSpectrogram) = lookup(x, 2) |> val
 
 const MultivariateSpectrogram = AbstractSpectrogram{T, 3} where {T}
 

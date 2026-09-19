@@ -74,8 +74,12 @@ JLD2.rconvert(::Type{<:DimArray}, nt::NamedTuple) = _rebuild(DimArray, nt)
 # Map any stored ToolsArray (incl. the legacy `TimeseriesTools.ToolsArray` path) and
 # any plain DimArray to an `Upgrade`; everything else uses JLD2's default resolution.
 function toolsarray_typemap(f, path::AbstractString, params)
-    endswith(path, "ToolsArray") && return JLD2.Upgrade(ToolsArray)
-    endswith(path, "DimArray") && return JLD2.Upgrade(DimArray)
+    # Match the type NAME, not any path ending in it: `endswith` would also claim a
+    # foreign `MyToolsArray`. The bare name still covers the current
+    # `TimeseriesBase.ToolsArrays.ToolsArray` and the legacy `TimeseriesTools.ToolsArray`.
+    tname = last(split(first(split(path, ('{', ','))), '.'))
+    tname == "ToolsArray" && return JLD2.Upgrade(ToolsArray)
+    tname == "DimArray" && return JLD2.Upgrade(DimArray)
     return JLD2.default_typemap(f, path, params)
 end
 
