@@ -21,6 +21,4 @@ docs/build/
 docs/site/
 !test/test_timeseries.tsv
 .claude/
-
-# Scratch notes and investigations, not part of the package
 _research/
