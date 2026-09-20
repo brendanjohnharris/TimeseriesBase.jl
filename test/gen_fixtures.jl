@@ -10,12 +10,12 @@
 using TimeseriesBase, JLD2, DimensionalData
 
 module FixtureGen
-using DimensionalData
-DimensionalData.@dim Foo "Foo (absent on read)"
-DimensionalData.@dim Bar "Bar (absent on read)"
-struct Meta
-    note::String
-end
+    using DimensionalData
+    DimensionalData.@dim Foo "Foo (absent on read)"
+    DimensionalData.@dim Bar "Bar (absent on read)"
+    struct Meta
+        note::String
+    end
 end
 
 dir = joinpath(@__DIR__, "fixtures")
