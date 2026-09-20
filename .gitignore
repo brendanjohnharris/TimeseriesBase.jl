@@ -22,3 +22,4 @@ docs/site/
 !test/test_timeseries.tsv
 .claude/
 _research/
+!test/fixtures/*.jld2
