@@ -2,12 +2,12 @@
 
 All notable changes to TimeseriesBase.jl are documented here.
 
-## [Unreleased]
+## [v0.3.0]
 
 ### Added
-- `Dates` support for windowing, grid repair and TSV IO. `buffer`, `window`,
+- `Dates` support for windowing, grid repair, and TSV IO. `buffer`, `window`,
   `delayembed`, `coarsegrain` and `regularize` now accept a `DateTime`, `Date` or
-  `Period` time index, and a `Dates` time column survives a TSV round trip.
+  `Period` time index, and a `Dates` time column survives TSV load.
 - `regularize` on a `Dates` lookup fits the grid on exact integer offsets and accepts
   `atol` as a `Period`. Its default tolerance is *exact*, since a `Dates` lookup carries
   no float jitter, and a fitted step below the lookup's resolution is rejected.
