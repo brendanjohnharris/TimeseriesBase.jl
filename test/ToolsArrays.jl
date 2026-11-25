@@ -286,4 +286,12 @@ end
 
     @test_throws DimensionMismatch relabel(A, X => [:a, :b])
     @test_throws ArgumentError relabel(A, X => [:a, :b, :c], X => [:d, :e, :f])
+    @test_logs (:warn, r"more than one Y") relabel(G, X => Y(1:3))
+    @test_logs (:warn, r"more than one Y") relabel(G, X => Dim{:Y}(1:3))
+    S = @test_logs relabel(G, X => Y(1:3), Y => X([:u, :v])) # swapping does not warn
+    @test parent(S) == parent(G)
+    @test S[Y = At(1), X = At(:v)] == 4
+    C = ToolsArray(reshape(1:9, 3, 3), (Dim{:neuron}(1:3), Dim{:neuron}(1:3)))
+    R = @test_logs relabel(C, :neuron => [:a, :b, :c]) # existing duplicates do not warn
+    @test lookup(R, 1) == [:a, :b, :c]
 end

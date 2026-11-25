@@ -280,7 +280,9 @@ Each pair maps a dimension of `A` (a `Dimension`, its type or its name) to the n
 vector of values, a `Lookup`, or a `Dimension`, which may be of a different type (e.g.
 `X => Y(ys)`). A bare `Dimension` replaces the dimension of the same type. Other dimensions keep
 their lookups. The order, span and sampling of a new lookup are detected from its values, as
-when an array is constructed, unless the given `Lookup` or `Dimension` specifies them.
+when an array is constructed, unless the given `Lookup` or `Dimension` specifies them. A new
+dimension named like another dimension of `A` gives a warning, since selecting or reducing by
+that name then acts on the first of them only.
 
 `DimensionalData.set` treats new values differently: when their order differs from that of the
 current lookup, or the current lookup is `Unordered`, `set` reorders the data to match but keeps
@@ -306,6 +308,13 @@ function relabel(A::AbstractDimArray, p::Pair, ps::Pair...)
     newdims = ntuple(ndims(A)) do n
         j = findfirst(==(n), i)
         isnothing(j) ? dims(A, n) : _relabel(dims(A, n), last(pairs[j]))
+    end
+    names = map(DimensionalData.name, newdims) # DimensionalData resolves dimensions by name
+    oldnames = map(DimensionalData.name, dims(A))
+    for name in unique(names[collect(i)]) # only duplicates `relabel` creates
+        count(==(name), names) > count(==(name), oldnames) &&
+            @warn "`relabel` gives the result more than one $name dimension; selecting or " *
+                  "reducing by that name acts on the first only"
     end
     for (d, n) in zip(newdims, size(A))
         length(d) == n || throw(DimensionMismatch("the new lookup for $(DimensionalData.name(d)) " *

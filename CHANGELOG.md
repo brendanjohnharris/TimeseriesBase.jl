@@ -8,6 +8,9 @@ All notable changes to TimeseriesBase.jl are documented here.
 - `centralderiv!`, `leftderiv!` and `rightderiv!` on a unitful time axis threw a
   `DimensionError`; they now throw an `ArgumentError` naming the out-of-place form.
 - The `stitch` docstring was attached to an internal helper.
+- `relabel` could give two axes the same dimension (e.g. `relabel(A, X => Y(ys))` on an array
+  that already has a `Y`) without notice; selecting or reducing by that name then acts on the
+  first only. It now warns.
 
 ## [v0.3.1]
 
