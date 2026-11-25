@@ -234,3 +234,56 @@ end
     @test name(ToolsArray{Float32}(A; name = :new)) == :new # kwargs must be honoured
     @test name(ToolsArray{Float64}(A; name = :same)) == :same
 end
+
+@testitem "relabel" tags = [:fast] begin
+    import DimensionalData: order, ForwardOrdered, ReverseOrdered
+
+    # * A reverse-ordered lookup relabelled with labels that sort forwards
+    A = ToolsArray([1, 2, 3], (X([30, 20, 10]),); name = :a, metadata = Dict(:m => 1))
+    B = relabel(A, X => [:a, :b, :c])
+    @test B isa ToolsArray
+    @test parent(B) == parent(A)
+    @test lookup(B, X) == [:a, :b, :c]
+    @test order(lookup(B, X)) == ForwardOrdered()
+    @test B[X = At(:a)] == 1
+    @test DimensionalData.name(B) == DimensionalData.name(A)
+    @test DimensionalData.metadata(B) == DimensionalData.metadata(A)
+
+    # * An unordered lookup relabelled with sorted labels
+    C = ToolsArray([1, 2, 3], (X([:c, :a, :b]),))
+    @test parent(relabel(C, X => [:p, :q, :r])) == [1, 2, 3]
+    @test relabel(C, X => [:p, :q, :r])[X = At(:p)] == 1
+
+    # * Negating an axis reverses its order but not the data
+    D = ToolsArray([1, 2, 3], (X([10, 20, 30]),))
+    E = relabel(D, X => -lookup(D, X))
+    @test parent(E) == [1, 2, 3]
+    @test E[X = At(-10)] == 1
+    @test order(lookup(E, X)) == ReverseOrdered()
+
+    # * A different dimension type
+    F = relabel(A, X => Y([1.0, 2.0, 3.0]))
+    @test dims(F, 1) isa Y
+    @test parent(F) == parent(A)
+    @test F[Y = Near(1.1)] == 1
+
+    # * A bare dimension replaces the one of the same type; others are kept
+    G = ToolsArray(reshape(1:6, 3, 2), (X([30, 20, 10]), Y([:u, :v])))
+    H = relabel(G, X([:a, :b, :c]))
+    @test parent(H) == parent(G)
+    @test lookup(H, Y) == lookup(G, Y)
+    @test H[X = At(:a), Y = At(:v)] == 4
+    K = relabel(G, X => 1:3, :Y => [:v, :u])
+    @test parent(K) == parent(G)
+    @test K[X = At(1), Y = At(:v)] == 1
+
+    # * Time series keep their type
+    x = Timeseries(randn(10), 1:10)
+    y = relabel(x, 𝑡 => 0.1:0.1:1.0)
+    @test y isa AbstractTimeseries
+    @test parent(y) == parent(x)
+    @test times(y) == 0.1:0.1:1.0
+
+    @test_throws DimensionMismatch relabel(A, X => [:a, :b])
+    @test_throws ArgumentError relabel(A, X => [:a, :b, :c], X => [:d, :e, :f])
+end
