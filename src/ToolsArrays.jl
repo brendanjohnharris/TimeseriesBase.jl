@@ -5,7 +5,8 @@ import DimensionalData: Dimension, NoName, NoMetadata, format, AbstractBasicDimA
 
 export AbstractToolsArray, ToolsArray,
     ToolsDimension, ToolsDim,
-    𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs, Log𝑓, Log10𝑓
+    𝑡, 𝑥, 𝑦, 𝑧, 𝑓, Var, Obs, Log𝑓, Log10𝑓,
+    relabel
 
 """
 A local type to avoid overloading and piracy issues with DimensionalData.jl
@@ -267,5 +268,59 @@ function DimensionalData.dimconstructor(
 end
 DimensionalData.dimconstructor(::Tuple{<:ToolsDimension, Vararg}) = ToolsArray
 DimensionalData.dimconstructor(dims::ToolsDimension) = ToolsArray
+
+"""
+    relabel(A::AbstractDimArray, dim => labels, ...)
+    relabel(A::AbstractDimArray, newdim::Dimension, ...)
+
+Replace the lookups of `A`'s dimensions without moving its data: the `i`-th label of a new
+lookup names the `i`-th slice of `A` along that dimension, whatever order the labels sort in.
+
+Each pair maps a dimension of `A` (a `Dimension`, its type or its name) to the new labels: a
+vector of values, a `Lookup`, or a `Dimension`, which may be of a different type (e.g.
+`X => Y(ys)`). A bare `Dimension` replaces the dimension of the same type. Other dimensions keep
+their lookups. The order, span and sampling of a new lookup are detected from its values, as
+when an array is constructed, unless the given `Lookup` or `Dimension` specifies them.
+
+`DimensionalData.set` treats new values differently: when their order differs from that of the
+current lookup, or the current lookup is `Unordered`, `set` reorders the data to match but keeps
+the values in the order given, so labels no longer name the slices they were given for.
+`relabel` never reorders.
+
+# Examples
+```julia
+julia> A = ToolsArray([1, 2, 3], X([30, 20, 10]));
+
+julia> relabel(A, X => [:a, :b, :c])[X = At(:a)]
+1
+
+julia> set(A, X => [:a, :b, :c])[X = At(:a)] # DimensionalData 0.30
+3
+```
+"""
+function relabel(A::AbstractDimArray, p::Pair, ps::Pair...)
+    pairs = (p, ps...)
+    i = map(p -> dimnum(A, first(p)), pairs)
+    allunique(i) ||
+        throw(ArgumentError("`relabel` was given more than one lookup for the same dimension"))
+    newdims = ntuple(ndims(A)) do n
+        j = findfirst(==(n), i)
+        isnothing(j) ? dims(A, n) : _relabel(dims(A, n), last(pairs[j]))
+    end
+    for (d, n) in zip(newdims, size(A))
+        length(d) == n || throw(DimensionMismatch("the new lookup for $(DimensionalData.name(d)) " *
+                                                  "has $(length(d)) labels for $n slices"))
+    end
+    return rebuild(A; dims = format(newdims, parent(A)))
+end
+function relabel(A::AbstractDimArray, d::Dimension, ds::Dimension...)
+    return relabel(A, map(d -> DimensionalData.Dimensions.basetypeof(d) => d, (d, ds...))...)
+end
+
+_relabel(d::Dimension, labels::AbstractVector) = DimensionalData.Dimensions.basetypeof(d)(labels)
+function _relabel(d::Dimension, l::DimensionalData.Lookups.Lookup)
+    return DimensionalData.Dimensions.basetypeof(d)(l)
+end
+_relabel(::Dimension, newdim::Dimension) = newdim
 
 end

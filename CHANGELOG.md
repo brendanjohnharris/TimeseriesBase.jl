@@ -2,6 +2,14 @@
 
 All notable changes to TimeseriesBase.jl are documented here.
 
+## [v0.3.1]
+
+### Added
+- `relabel(A, dim => labels, ...)` replaces dimension lookups without moving data, detecting
+  the new lookup's order from its values. `DimensionalData.set` reorders the data instead
+  when the new values sort differently to the old lookup (DimensionalData 0.30), leaving
+  labels attached to the wrong slices.
+
 ## [v0.3.0]
 
 Breaking. `Dates` time indices are now supported across windowing, grid repair and IO.
