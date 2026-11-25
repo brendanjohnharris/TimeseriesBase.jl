@@ -1351,10 +1351,16 @@ function align(
 end
 align(x, ts, dt::Interval; kwargs...) = align(x, ts, extrema(dt); kwargs...)
 
+# The first index of a stitched series. A numeric or elapsed axis restarts one step in,
+# as it always has; an instant axis continues the original calendar rather than dropping
+# it, which would silently cost `groupby`, `months` and the instant selectors.
+_stitchstart(t, dt) = dt
+_stitchstart(t::AbstractVector{<:Dates.TimeType}, dt) = first(t)
+
 """
     stitch(x, args...)
 
-Stitch multiple time series together by concatenating along the time dimension generating new contiguous time indices. An instant (`DateTime`, `Date`) time index continues the calendar from the first series' own start, so the result is still a calendar series; a numeric or elapsed (`Period`) index restarts one step from the origin. The time series must be of the same type (`UnivariateRegular`, `MultivariateRegular`, or `AbstractArray`), and the sampling period and dimensions of the data arrays must match. If the arguments are `MultivariateRegular, they must have the same dimensions (except for the time dimension).
+Stitch multiple time series together by concatenating along the time dimension generating new contiguous time indices. An instant (`DateTime`, `Date`) time index continues the calendar from the first series' own start, so the result is still a calendar series; a numeric or elapsed (`Period`) index restarts one step from the origin. The time series must be of the same type (`UnivariateRegular`, `MultivariateRegular`, or `AbstractArray`), and the sampling period and dimensions of the data arrays must match. If the arguments are `MultivariateRegular`, they must have the same dimensions (except for the time dimension).
 
 # Arguments
 - `X`: The first time series.
@@ -1363,12 +1369,6 @@ Stitch multiple time series together by concatenating along the time dimension g
 # Returns
 - A new time series containing the concatenated data.
 """
-# The first index of a stitched series. A numeric or elapsed axis restarts one step in,
-# as it always has; an instant axis continues the original calendar rather than dropping
-# it, which would silently cost `groupby`, `months` and the instant selectors.
-_stitchstart(t, dt) = dt
-_stitchstart(t::AbstractVector{<:Dates.TimeType}, dt) = first(t)
-
 function stitch(x::UnivariateRegular, y::UnivariateRegular)
     dt = samplingperiod(x)
     @assert dt == samplingperiod(y)

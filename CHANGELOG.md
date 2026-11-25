@@ -7,6 +7,7 @@ All notable changes to TimeseriesBase.jl are documented here.
 ### Fixed
 - `centralderiv!`, `leftderiv!` and `rightderiv!` on a unitful time axis threw a
   `DimensionError`; they now throw an `ArgumentError` naming the out-of-place form.
+- The `stitch` docstring was attached to an internal helper.
 
 ## [v0.3.1]
 
