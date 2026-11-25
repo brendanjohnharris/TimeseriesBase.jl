@@ -157,10 +157,12 @@ DimensionalData.@dim Log𝑓 LogFrequencyDim "Natural Log Frequency"
     𝑡
 
 A DimensionalData.jl dimension representing time. An array whose first dimension is `𝑡`
-is an [`AbstractTimeseries`](@ref); its values are returned by [`times`](@ref).
+is an [`AbstractTimeseries`](@ref `TimeseriesBase.TimeSeries.AbstractTimeseries`); its values are
+returned by [`times`](@ref `TimeseriesBase.Utils.times`).
 
 ## See also
-- [`Timeseries`](@ref), [`times`](@ref), [`samplingrate`](@ref)
+- [`Timeseries`](@ref `TimeseriesBase.TimeSeries.Timeseries`), [`times`](@ref `TimeseriesBase.Utils.times`),
+  [`samplingrate`](@ref `TimeseriesBase.Utils.samplingrate`)
 """
 𝑡
 
@@ -211,7 +213,7 @@ values are `log10(f)`, not `f`.
 
 !!! note
     `Log10𝑓` is a `LogFrequencyDim`, not a `FrequencyDim`, so an array indexed by it is
-    not an `AbstractSpectrum` and [`freqs`](@ref) does not apply to it.
+    not an `AbstractSpectrum` and [`freqs`](@ref `TimeseriesBase.Spectra.freqs`) does not apply to it.
 
 ## See also
 - [`𝑓`](@ref), [`Log𝑓`](@ref)
@@ -226,7 +228,7 @@ values are `log(f)`, not `f`.
 
 !!! note
     `Log𝑓` is a `LogFrequencyDim`, not a `FrequencyDim`, so an array indexed by it is not
-    an `AbstractSpectrum` and [`freqs`](@ref) does not apply to it.
+    an `AbstractSpectrum` and [`freqs`](@ref `TimeseriesBase.Spectra.freqs`) does not apply to it.
 
 ## See also
 - [`𝑓`](@ref), [`Log10𝑓`](@ref)

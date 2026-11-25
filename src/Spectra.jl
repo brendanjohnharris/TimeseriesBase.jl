@@ -104,12 +104,29 @@ const RegularTimeFreqIndex = Tuple{
     F <: FrequencyDim,
 }
 
+"""
+    AbstractSpectrogram{T, N, B}
+
+A type alias for an `AbstractToolsArray` whose first dimension is time and second is
+frequency.
+"""
 const AbstractSpectrogram = AbstractToolsArray{T, N, <:TimeFreqIndex, B} where {T, N, B}
 times(x::AbstractSpectrogram) = lookup(x, 𝑡) |> val
 freqs(x::AbstractSpectrogram) = lookup(x, 2) |> val
 
+"""
+    MultivariateSpectrogram
+
+A type alias for a three-dimensional [`AbstractSpectrogram`](@ref): time, frequency and one
+further dimension.
+"""
 const MultivariateSpectrogram = AbstractSpectrogram{T, 3} where {T}
 
+"""
+    RegularSpectrogram{T, N, B}
+
+A type alias for an [`AbstractSpectrogram`](@ref) with a regularly sampled time dimension.
+"""
 const RegularSpectrogram = AbstractToolsArray{
     T, N, <:RegularTimeFreqIndex,
     B,

@@ -11,6 +11,7 @@ All notable changes to TimeseriesBase.jl are documented here.
 - `relabel` could give two axes the same dimension (e.g. `relabel(A, X => Y(ys))` on an array
   that already has a `Y`) without notice; selecting or reducing by that name then acts on the
   first only. It now warns.
+- Docstring examples now run as doctests; exported aliases without a docstring gained one.
 
 ## [v0.3.1]
 

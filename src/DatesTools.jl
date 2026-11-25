@@ -7,12 +7,23 @@ import DimensionalData.Dates
 
 export DateIndex, DateTimeIndex, DateTimeseries
 
+"""
+    DateIndex
+
+A type alias for a collection of `Dates.AbstractTime` values (instants such as `DateTime`, or
+periods such as `Day`) usable as a time lookup.
+"""
 DateIndex = DateTIndex = Union{
     AbstractArray{<:Dates.AbstractTime},
     AbstractRange{<:Dates.AbstractTime},
     Tuple{<:Dates.AbstractTime},
 }
 
+"""
+    DateTimeIndex
+
+A type alias for a tuple of dimensions whose first dimension has a [`DateIndex`](@ref) lookup.
+"""
 DateTimeIndex = Tuple{
     A,
     Vararg{DimensionalData.Dimension},
@@ -32,7 +43,7 @@ A type alias for an `AbstractToolsArray` whose time lookup holds `Dates` values.
     `Millisecond`, ...). Both satisfy this alias, but they behave differently: an
     instant axis is a calendar, so it supports `groupby(𝑡 => months(1))` and instant
     selectors, while a duration axis is elapsed time from an implicit origin.
-    [`stitch`](@ref) preserves an instant axis, and `regularize(...; zero = true)`
+    [`stitch`](@ref `TimeseriesBase.Utils.stitch`) preserves an instant axis, and `regularize(...; zero = true)`
     deliberately returns a duration axis.
 
     `Dates.Time` is not supported: it is a time of day, it wraps at midnight, and its

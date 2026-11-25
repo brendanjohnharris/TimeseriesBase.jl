@@ -45,17 +45,22 @@ export dimunit, timeunit, frequnit, unit,
 
 # Unitful._promote_unit(::S, ::T) where {S<:Unitful.FreeUnits{(), NoDims, nothing}, T<:Unitful.TimeUnits} = u"s"
 """
-    TimeseriesBase.Uniful.convertconst(c::Number, u::Unitful.Quantity)
+    TimeseriesBase.TimeSeries.convertconst(c::Number, u::Unitful.Quantity)
 
 Converts a constant `c` to have the same units as `u`.
 
 ## Examples
-```@example 1
-julia> using Unitful;
+```jldoctest
+julia> using TimeseriesBase, Unitful
+
 julia> c = 5;
+
 julia> u = 3u"s";
-julia> converted_c = TimeseriesBase.Unitful.convertconst(c, u);
+
+julia> converted_c = TimeseriesBase.TimeSeries.convertconst(c, u);
+
 julia> typeof(converted_c) == typeof(u)
+true
 ```
 """
 convertconst(c::Number, u::Unitful.Quantity) = (c)unit(u)
@@ -89,12 +94,17 @@ UnitfulTimeIndex = Tuple{
 A type alias for an `AbstractToolsArray` with a [`UnitfulTimeIndex`](@ref).
 
 ## Examples
-```@example 1
-julia> using Unitful;
+```jldoctest
+julia> using TimeseriesBase, Unitful
+
 julia> t = (1:100)u"s";
+
 julia> x = rand(100);
+
 julia> uts = Timeseries(x, t);
+
 julia> uts isa UnitfulTimeseries
+true
 ```
 """
 UnitfulTimeseries = AbstractToolsArray{T, N, <:UnitfulTimeIndex, B} where {T, N, B}
@@ -146,12 +156,17 @@ end
 Returns the unit associated with the specified dimension `dim` of a [`UnitfulTimeseries`](@ref).
 
 ## Examples
-```@example 1
-julia> using Unitful;
+```jldoctest
+julia> using TimeseriesBase, Unitful
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> ts = Timeseries(x, (t)u"ms");
+
 julia> TimeseriesBase.dimunit(ts, 𝑡) == u"ms"
+true
 ```
 """
 dimunit(x::AbstractToolsArray, dim) = dims(x, dim) |> eltype |> _unit
@@ -162,12 +177,17 @@ dimunit(x::AbstractToolsArray, dim) = dims(x, dim) |> eltype |> _unit
 Returns the time units associated with a [`UnitfulTimeseries`].
 
 ## Examples
-```@example 1
-julia> using Unitful;
+```jldoctest
+julia> using TimeseriesBase, Unitful
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> ts = Timeseries(x, (t)u"ms");
+
 julia> timeunit(ts) == u"ms"
+true
 ```
 
 Returns `NoUnits` for a `Dates` time index, which carries no `Unitful` unit.
@@ -180,13 +200,13 @@ timeunit(x::AbstractTimeseries) = dimunit(x, 𝑡)
 Returns the frequency units associated with a [`UnitfulSpectrum`](@ref).
 
 ## Examples
-```@example 1
-julia> using Unitful;
-julia> t = 1:100;
-julia> x = rand(100);
-julia> ts = Timeseries(x, (t)u"ms");
-julia> sp = fft(ts);  # assuming fft returns a UnitfulSpectrum
-julia> frequnits(sp) == u"Hz"
+```jldoctest
+julia> using TimeseriesBase, Unitful
+
+julia> sp = Spectrum((1:10)u"Hz", rand(10));
+
+julia> frequnit(sp) == u"Hz"
+true
 ```
 """
 frequnit(x::AbstractSpectrum) = dimunit(x, 1) # by position: `𝑓` matches only that name
@@ -197,12 +217,17 @@ frequnit(x::AbstractSpectrum) = dimunit(x, 1) # by position: `𝑓` matches only
 Returns the units associated with the elements of an [`UnitfulTimeseries`](@ref) or [`UnitfulSpectrum`](@ref).
 
 ## Examples
-```@example 1
-julia> using Unitful;
+```jldoctest
+julia> using TimeseriesBase, Unitful
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> ts = Timeseries(x, (t)u"ms")*u"V";
+
 julia> unit(ts) == u"V"
+true
 ```
 """
 unit(x::Union{<:AbstractTimeseries, AbstractSpectrum}) = x |> eltype |> unit

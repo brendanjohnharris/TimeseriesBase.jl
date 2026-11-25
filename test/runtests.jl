@@ -8,6 +8,11 @@ using TestItemRunner
     Aqua.test_all(TimeseriesBase, unbound_args = true)
 end
 
+@testitem "Doctests" begin
+    using Documenter
+    doctest(TimeseriesBase; manual = false)
+end
+
 @testitem "JET" begin
     if isempty(VERSION.prerelease)
         import Pkg

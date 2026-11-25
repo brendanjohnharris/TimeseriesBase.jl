@@ -71,11 +71,17 @@ end
 Returns the time indices of the [`AbstractTimeseries`](@ref) `x`.
 
 ## Examples
-```@example 1
+```jldoctest
+julia> using TimeseriesBase
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> ts = Timeseries(x, t);
+
 julia> times(ts) == t
+true
 ```
 """
 times(x::AbstractTimeseries) = lookup(x, 𝑡) |> val
@@ -86,11 +92,17 @@ times(x::AbstractTimeseries) = lookup(x, 𝑡) |> val
 Returns the step size (time increment) of a regularly sampled [`RegularTimeseries`](@ref).
 
 ## Examples
-```@example 1
+```jldoctest
+julia> using TimeseriesBase
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> rts = Timeseries(x, t);
+
 julia> step(rts) == 1
+true
 ```
 """
 Base.step(x::RegularTimeseries; dims = 𝑡) = lookup(x, dims) |> step
@@ -101,11 +113,17 @@ Base.step(x::RegularTimeseries; dims = 𝑡) = lookup(x, dims) |> step
 Returns the sampling rate (inverse of the step size) of a regularly sampled [`RegularTimeseries`](@ref).
 
 ## Examples
-```@example 1
+```jldoctest
+julia> using TimeseriesBase
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> rts = Timeseries(x, t);
+
 julia> samplingrate(rts) == 1
+true
 ```
 
 For a `Dates` time index the rate is returned in `Unitful` units (a `Day(1)` step gives
@@ -121,11 +139,17 @@ samplingrate(x::RegularTimeseries; kwargs...) = 1 / _stepquantity(step(x; kwargs
 Returns the sampling period (step size) of a regularly sampled [`RegularTimeseries`](@ref).
 
 ## Examples
-```@example 1
+```jldoctest
+julia> using TimeseriesBase
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> rts = Timeseries(x, t);
+
 julia> samplingperiod(rts) == 1
+true
 ```
 """
 samplingperiod(x::RegularTimeseries; kwargs...) = step(x; kwargs...)
@@ -137,11 +161,17 @@ Returns the Nyquist frequency (half the [`samplingrate`](@ref)) of a regularly s
 [`RegularTimeseries`](@ref): the highest frequency representable without aliasing.
 
 ## Examples
-```@example 1
+```jldoctest
+julia> using TimeseriesBase
+
 julia> t = 0:0.01:10;
+
 julia> x = rand(length(t));
+
 julia> rts = Timeseries(x, t);
+
 julia> nyquist(rts) == samplingrate(rts) / 2
+true
 ```
 
 Inherits the `Dates` behaviour of [`samplingrate`](@ref).
@@ -154,11 +184,17 @@ nyquist(x::RegularTimeseries; kwargs...) = samplingrate(x; kwargs...) / 2
 Returns the duration of the [`AbstractTimeseries`](@ref) `x`.
 
 ## Examples
-```@example 1
+```jldoctest
+julia> using TimeseriesBase
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> ts = Timeseries(x, t);
+
 julia> TimeseriesBase.duration(ts) == 99
+true
 ```
 """
 duration(x::AbstractTimeseries) = (last ∘ times)(x) - (first ∘ times)(x)
@@ -169,12 +205,17 @@ duration(x::AbstractTimeseries) = (last ∘ times)(x) - (first ∘ times)(x)
 Returns an interval representing the range of the [`AbstractTimeseries`](@ref) `x`.
 
 ## Examples
-```@example 1
-julia> using IntervalSets;
+```jldoctest
+julia> using TimeseriesBase # re-exports IntervalSets
+
 julia> t = 1:100;
+
 julia> x = rand(100);
+
 julia> ts = Timeseries(x, t);
-julia> IntervalSets.Interval(ts) == (1..100)
+
+julia> Interval(ts) == (1..100)
+true
 ```
 """
 IntervalSets.Interval(x::AbstractTimeseries) = (first ∘ times)(x) .. (last ∘ times)(x)
@@ -219,12 +260,12 @@ For a multivariate spike train, returns an array where each element contains the
 one channel/dimension. For a plain array, returns the array unchanged (identity function).
 
 # Arguments
-- `x`: A [`SpikeTrain`](@ref) or [`AbstractArray`](@ref).
+- `x`: A [`SpikeTrain`](@ref) or `AbstractArray`.
 
 # Returns
 - For [`UnivariateSpikeTrain`](@ref): A vector of spike times.
 - For multivariate [`SpikeTrain`](@ref): An array of spike time vectors, one per channel.
-- For [`AbstractArray`](@ref): The input array unchanged.
+- For `AbstractArray`: The input array unchanged.
 
 See also: [`spiketrain`](@ref), [`times`](@ref)
 

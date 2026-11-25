@@ -79,6 +79,12 @@ const RegularTimeseries = AbstractToolsArray{
 
 # Each trailing dimension must be regular, but they need not share a lookup type: a
 # shared `B` would reject e.g. `𝑥(1:3)` alongside `𝑦(1.0:3.0)`.
+"""
+    MultidimensionalIndex
+
+A type alias for a tuple of dimensions whose time dimension and every other dimension are
+regularly sampled (each a [`RegularIndex`](@ref)).
+"""
 const MultidimensionalIndex = Tuple{
     A,
     Vararg{Dimension{<:RegularIndex}},
@@ -137,7 +143,18 @@ A type alias for a spike-train time series, which contains spike times in the ti
 """
 SpikeTrain
 
+"""
+    UnivariateSpikeTrain
+
+A type alias for a [`SpikeTrain`](@ref) with a single (time) dimension.
+"""
 const UnivariateSpikeTrain = typeintersect(UnivariateTimeseries, SpikeTrain)
+
+"""
+    MultivariateSpikeTrain
+
+A type alias for a [`SpikeTrain`](@ref) with a time dimension and one further dimension.
+"""
 const MultivariateSpikeTrain = typeintersect(MultivariateTimeseries, SpikeTrain)
 
 """
@@ -146,12 +163,17 @@ const MultivariateSpikeTrain = typeintersect(MultivariateTimeseries, SpikeTrain)
 Constructs a univariate time series with time `t` and data `x`.
 
 ## Examples
-```@example 1
-julia> using TimeseriesBase, Unitful;
-julia> t = 1:100
-julia> x = rand(100)
-julia> ts = Timeseries(x, t)
-julia> ts isa typeintersect(UnivariateTimeseries, RegularTimeseries)
+```jldoctest
+julia> using TimeseriesBase
+
+julia> t = 1:100;
+
+julia> x = rand(100);
+
+julia> ts = Timeseries(x, t);
+
+julia> ts isa UnivariateRegular
+true
 ```
 """
 function Timeseries(x, t, dims::Vararg{Dimension}; kwargs...)
@@ -164,12 +186,19 @@ end
 Constructs a multivariate time series with time t, variable v, and data x.
 
 ## Examples
-```@example 1
+```jldoctest
+julia> using TimeseriesBase
+
 julia> t = 1:100;
+
 julia> v = [:a, :b, :c];
+
 julia> x = rand(100, 3);
-julia> mts = Timeseries(x, t, v)
-julia> mts isa typeintersect(MultivariateTimeseries, RegularTimeseries)
+
+julia> mts = Timeseries(x, t, v);
+
+julia> mts isa MultivariateRegular
+true
 ```
 """
 function Timeseries(x, t, v, dims::Vararg{Dimension}; kwargs...)
@@ -182,7 +211,18 @@ end
 
 convertconst(a, _) = a
 
+"""
+    UnivariateRegular
+
+A type alias for a [`UnivariateTimeseries`](@ref) that is also a [`RegularTimeseries`](@ref).
+"""
 const UnivariateRegular = typeintersect(UnivariateTimeseries, RegularTimeseries)
+
+"""
+    MultivariateRegular
+
+A type alias for a [`MultivariateTimeseries`](@ref) that is also a [`RegularTimeseries`](@ref).
+"""
 const MultivariateRegular = typeintersect(MultivariateTimeseries, RegularTimeseries)
 
 end
