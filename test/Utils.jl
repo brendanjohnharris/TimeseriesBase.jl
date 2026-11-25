@@ -668,6 +668,13 @@ end
     @test_throws ArgumentError centralderiv(Timeseries(randn(10), DateTime(1901):Year(1):DateTime(1910)))
 end
 
+@testitem "Unitful: in-place derivatives" tags = [:fast] begin
+    using Unitful
+    x = Timeseries(randn(10), (1:10)u"s")
+    @test_throws ArgumentError centralderiv!(deepcopy(x)) # the result needs units of s^-1
+    @test unit(eltype(centralderiv(x))) == u"s^-1"
+end
+
 @testitem "MultidimensionalTimeseries admits mixed lookup types" tags = [:fast] begin
     @test Timeseries(randn(8, 3, 3), 1:8, 𝑥(1:3), 𝑦(1.0:3.0)) isa MultidimensionalTimeseries
     @test Timeseries(randn(8, 3, 3), 1:8, 𝑥(1:3), 𝑦(1:3)) isa MultidimensionalTimeseries

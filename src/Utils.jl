@@ -1102,11 +1102,10 @@ end
 function _deriv!(x::RegularTimeseries, f!; dims = 𝑡, kwargs...)
     checkderivdims(dims)
     dt = step(x; dims)
-    dt isa Dates.Period && throw(
+    (dt isa Dates.Period || _unit(dt) != NoUnits) && throw(
         ArgumentError(
-            "in-place derivatives are not supported for a Dates lookup: the result " *
-                "carries rate units that the input array cannot store. Use the " *
-                "out-of-place form instead."
+            "in-place derivatives need a unitless time step: the result carries rate " *
+                "units that the input array cannot store. Use the out-of-place form instead."
         )
     )
     f!(x; dims, kwargs...)

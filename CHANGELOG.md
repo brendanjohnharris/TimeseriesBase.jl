@@ -2,6 +2,12 @@
 
 All notable changes to TimeseriesBase.jl are documented here.
 
+## [Unreleased]
+
+### Fixed
+- `centralderiv!`, `leftderiv!` and `rightderiv!` on a unitful time axis threw a
+  `DimensionError`; they now throw an `ArgumentError` naming the out-of-place form.
+
 ## [v0.3.1]
 
 ### Added
